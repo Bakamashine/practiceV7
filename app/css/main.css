@@ -1,0 +1,361 @@
+* {
+  text-decoration: none;
+}
+
+.myColorHeader,
+footer {
+  background: linear-gradient(
+    to left,
+    rgba(0, 27, 68, 1),
+    rgba(1, 164, 240, 1)
+  );
+}
+
+/* страница занимает 100% высоты */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin: 0;
+  width: 100%;
+}
+.content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* шапка */
+.myStyleTextLogo {
+  color: rgb(255, 255, 255);
+  font-size: 13px;
+}
+
+a {
+  text-decoration: none;
+}
+
+.myButton {
+  height: 130%;
+  font-size: 32px;
+}
+
+.myBlue {
+  background-color: rgba(0, 26, 67, 1);
+}
+.myGrey {
+  background-color: rgba(244, 245, 247, 1);
+}
+.myLightBlue {
+  background-color: rgba(1, 170, 247, 1);
+}
+
+.mySize20 {
+  font-size: 20px;
+}
+.myA {
+  color: rgba(1, 170, 247, 1);
+}
+.code-inputs {
+  gap: 10px;
+}
+
+/* Фиксированная нижняя навигация только для мобильных устройств */
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(
+    to left,
+    rgba(0, 27, 68, 1),
+    rgba(1, 164, 240, 1)
+  );
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  padding: 11px 0;
+  z-index: 1200;
+  display: none;
+  justify-content: space-around;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+@media (max-width: 990px) {
+  .mobile-bottom-nav {
+    display: flex;
+  }
+
+  .mobile-bottom-nav a {
+    font-size: 0.8rem;
+  }
+
+  .header-icons {
+    display: none !important;
+  }
+
+  body {
+    padding-bottom: 70px;
+  }
+
+  footer {
+    padding-bottom: 5%;
+  }
+
+  .myIcons {
+    display: none; /* Полностью скрываем иконки*/
+  }
+  .like {
+    width: 40px;
+    height: avto;
+  }
+}
+
+@media (max-width: 576px) {
+  .mySearh input {
+    font-size: 14px;
+    height: 45px !important;
+    padding: 0 8px;
+  }
+
+  .mySearh button {
+    padding: 6px 12px;
+    font-size: 14px;
+  }
+
+  .mySearh img {
+    width: 40px;
+    height: 40px;
+  }
+  .like {
+    width: 30px;
+    height: avto;
+  }
+  .mobile-bottom-nav a {
+    font-size: 0.5rem;
+  }
+  footer {
+    padding-bottom: 12%;
+  }
+}
+
+@media (max-width: 495px) {
+  .myImg {
+    width: 80px;
+  }
+
+  .mySearh input {
+    font-size: 10px;
+    max-height: 30px !important;
+    padding: 0 8px;
+  }
+
+  .mySearh button {
+    padding: 6px 12px;
+    font-size: 12px;
+    margin: 1px;
+  }
+
+  .mySearh img {
+    width: 30px;
+    height: 30px;
+  }
+  .like {
+    width: 20px;
+    height: avto;
+  }
+  footer {
+    padding-bottom: 15%;
+  }
+}
+
+.mobile-bottom-nav .nav-icon {
+  text-align: center;
+  flex: 1;
+}
+.mobile-bottom-nav .nav-icon img {
+  width: 24px;
+  height: 24px;
+  opacity: 0.7;
+}
+.mobile-bottom-nav .nav-icon img:hover {
+  opacity: 1;
+}
+
+/* контент на страницах */
+/* ввод проверочного кода */
+.Verify input {
+  width: 50px;
+  height: 50px;
+}
+@media (max-width: 900px) {
+  .catalog button {
+    font-size: 0.8rem;
+  }
+}
+@media (max-width: 576px) {
+  .catalog h1 {
+    font-size: 1rem;
+  }
+  .catalog h2,
+  .catalog h3,
+  .catalog h4,
+  .catalog h5,
+  .adaptSelect {
+    font-size: 0.6rem;
+  }
+  .catalog p,
+  .catalog textarea {
+    font-size: 0.4rem;
+  }
+  .catalog button {
+    font-size: 0.4rem;
+    max-width: avto;
+  }
+  .catalog input {
+    font-size: 0.8rem;
+  }
+  /* ввод проверочного кода на телефон */
+  .Verify input {
+    width: 25px;
+    height: 25px;
+  }
+}
+
+/* подвал */
+@media (max-width: 576px) {
+  footer img {
+    width: 40%;
+    height: avto;
+  }
+}
+
+/* регистрация */
+@media (max-width: 576px) {
+  .registration h1 {
+    font-size: 0.9rem;
+  }
+  .registration h5,
+  .registration button,
+  .registration a,
+  .registration input {
+    font-size: 0.8rem;
+  }
+}
+
+/* стрелка возврата на предыдущую страницу */
+@media (max-width: 576px) {
+  .myImgArrow {
+    width: 10%;
+    height: avto;
+  }
+}
+
+/* личный кабинет  */
+
+.profileButton {
+  height: 1.25rem;
+}
+
+.redactInfoButton img {
+  height: auto;
+  display: block;
+  transition: all 0.3s ease;
+}
+@media (max-width: 990px) {
+  .avatar {
+    max-width: 45%;
+  }
+  .profile button img {
+    max-width: 20%;
+    height: auto;
+  }
+  .redactInfoButton img {
+    width: 14px;
+  }
+}
+@media (max-width: 990px) {
+  .avatar {
+    max-width: 30%;
+  }
+  .redactInfoButton img {
+    width: 10px;
+  }
+}
+
+.edit {
+  background-color: rgba(60, 47, 47, 1);
+  border: 0cap;
+  border-radius: 0.4rem;
+}
+
+/* создание продукта */
+.addProduct {
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.newFoto {
+  cursor: pointer;
+  aspect-ratio: 1 / 1;
+  width: 750px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.backColorGre1 {
+  background-color: rgba(247, 244, 247, 1);
+}
+@media (min-width: 990px) {
+  .newTovar input,
+  .newTovar textarea,
+  .newTovar select,
+  .newTovar label {
+    font-size: 2rem;
+  }
+}
+@media (max-width: 990px) {
+  .nameBlock {
+    font-size: 1rem;
+  }
+  .newFoto {
+    width: 400px;
+  }
+  .newFoto input {
+    font-size: 1.2rem;
+  }
+}
+@media (max-width: 576px) {
+  .nameBlock {
+    font-size: 0.8rem;
+  }
+  .newFoto {
+    width: 200px;
+  }
+}
+
+/* рейтинг */
+.checked {
+  color: orange;
+}
+
+.flex-grow {
+  flex-grow: 1;
+}
+
+.object-fit {
+  object-fit: 1;
+}
+
+.header__button__text {
+  color: white;
+  text-decoration: none;
+  bottom: none;
+}
