@@ -1,32 +1,28 @@
-// import { getUserFromStorage } from "../context/AuthContext";
+// // import { getUserFromStorage } from "../context/AuthContext";
 
-export interface User {
-  id: string;
-  name: string;
-  phoneNumber: string;
-  authToken?: string;
-  role: string;
-}
+// export interface User {
 
-export const useUser = () => {
-  // TODO
-  const user =null;
+// }
 
-  const setUser = (userData: User | null) => {
-    if (typeof window !== "undefined") {
-      if (userData) {
-        localStorage.setItem("user", JSON.stringify(userData));
-      } else {
-        localStorage.removeItem("user");
-      }
-      window.location.reload();
-    }
-  };
+// export const useUser = () => {
+//   // TODO
+//   const user =null;
 
-  return {
-    user,
-    setUser,
-    addUser: setUser,
-    removeUser: () => setUser(null),
-  };
-};
+//   const setUser = (userData: User | null) => {
+//     if (typeof window !== "undefined") {
+//       if (userData) {
+//         localStorage.setItem("user", JSON.stringify(userData));
+//       } else {
+//         localStorage.removeItem("user");
+//       }
+//       window.location.reload();
+//     }
+//   };
+
+//   return {
+//     user,
+//     setUser,
+//     addUser: setUser,
+//     removeUser: () => setUser(null),
+//   };
+// };

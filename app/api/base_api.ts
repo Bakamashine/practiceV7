@@ -1,9 +1,12 @@
-
-import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from "axios";
+import axios, {
+  type AxiosInstance,
+  type AxiosRequestConfig,
+  type AxiosResponse,
+} from "axios";
 
 export interface ApiResponse<T = any> {
   data: T | null;
-  error: string | null;
+  error: any[] | string | null;
   status: number;
 }
 
@@ -11,7 +14,7 @@ export default class BaseApi {
   private createRequestConfig(
     method: string,
     url: string,
-    payload?: object
+    payload?: object,
   ): AxiosRequestConfig {
     return {
       method,
@@ -25,7 +28,7 @@ export default class BaseApi {
     axiosInstance: AxiosInstance,
     url: string,
     payload?: object,
-    method: AxiosRequestConfig["method"] = "get"
+    method: AxiosRequestConfig["method"] = "get",
   ): Promise<ApiResponse<T>> {
     try {
       const config = this.createRequestConfig(method, url, payload);
@@ -55,7 +58,7 @@ export default class BaseApi {
 
   protected async get<T = any>(
     axiosInstance: AxiosInstance,
-    url: string
+    url: string,
   ): Promise<ApiResponse<T>> {
     return this.request<T>(axiosInstance, url);
   }
@@ -63,7 +66,7 @@ export default class BaseApi {
   protected async post<T = any>(
     axiosInstance: AxiosInstance,
     url: string,
-    payload?: object
+    payload?: object,
   ): Promise<ApiResponse<T>> {
     return this.request<T>(axiosInstance, url, payload, "post");
   }
@@ -71,7 +74,7 @@ export default class BaseApi {
   protected async put<T = any>(
     axiosInstance: AxiosInstance,
     url: string,
-    payload?: object
+    payload?: object,
   ): Promise<ApiResponse<T>> {
     return this.request<T>(axiosInstance, url, payload, "put");
   }
@@ -79,14 +82,14 @@ export default class BaseApi {
   protected async patch<T = any>(
     axiosInstance: AxiosInstance,
     url: string,
-    payload?: object
+    payload?: object,
   ): Promise<ApiResponse<T>> {
     return this.request<T>(axiosInstance, url, payload, "patch");
   }
 
   protected async delete<T = any>(
     axiosInstance: AxiosInstance,
-    url: string
+    url: string,
   ): Promise<ApiResponse<T>> {
     return this.request<T>(axiosInstance, url, undefined, "delete");
   }

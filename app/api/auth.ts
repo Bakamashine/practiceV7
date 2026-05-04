@@ -10,20 +10,23 @@ export interface UserLogin {
 
 export interface AuthResponse {
   accessToken: string;
+  refreshToken: string;
 }
 
-export interface UserData {
+export interface UserData extends AuthResponse {
   id: string;
   name: string;
   phoneNumber: string;
   role: string;
-  accessToken: string;
 }
+
+const phoneKey =
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/mobilephone";
 
 interface DecodedToken {
   aud: string;
   exp: number;
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/mobilephone": string;
+  [phoneKey]: string;
   iat: number;
   nameid: string;
   nbf: number;
@@ -32,7 +35,7 @@ interface DecodedToken {
 }
 
 class Auth extends BaseApi {
-  private decodeToUserData(accessToken: string): ApiResponse<UserData> {
+  private decodeToUserData(accessToken: string, refreshToken: string): ApiResponse<UserData> {
     const decodedToken = decodeToken<DecodedToken>(accessToken);
 
     if (!decodedToken) {
@@ -43,9 +46,10 @@ class Auth extends BaseApi {
       data: {
         id: decodedToken.nameid,
         name: decodedToken.unique_name,
-        phoneNumber: decodedToken["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/mobilephone"],
+        phoneNumber: decodedToken[phoneKey],
         role: decodedToken.role,
         accessToken,
+        refreshToken,
       },
       error: null,
       status: 200,
@@ -63,7 +67,7 @@ class Auth extends BaseApi {
       return { data: null, error: result.error, status: result.status };
     }
 
-    return this.decodeToUserData(result.data!.accessToken);
+    return this.decodeToUserData(result.data!.accessToken, result.data!.refreshToken);
   }
 
   async login(user: UserLogin): Promise<ApiResponse<UserData>> {
@@ -76,7 +80,7 @@ class Auth extends BaseApi {
       return { data: null, error: result.error, status: result.status };
     }
 
-    return this.decodeToUserData(result.data!.accessToken);
+    return this.decodeToUserData(result.data!.accessToken, result.data!.refreshToken);
   }
 }
 
