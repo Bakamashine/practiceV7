@@ -359,3 +359,10 @@ a {
   text-decoration: none;
   bottom: none;
 }
+
+.flexCenter {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+}
