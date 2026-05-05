@@ -1,0 +1,1 @@
+$env:NODE_OPTIONS="--use-system-ca"; npm run dev
