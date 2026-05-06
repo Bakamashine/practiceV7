@@ -1,3 +1,2 @@
-const refreshTokenKeyCookie = "refreshToken"
-
-export default refreshTokenKeyCookie
+export const accessTokenKeyCookie = "accessToken";
+export const refreshTokenKeyCookie = "refreshToken";

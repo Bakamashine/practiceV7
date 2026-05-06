@@ -14,42 +14,48 @@ import Footer from "./layouts/components/footer";
 import "./css/main.css";
 import "/node_modules/bootstrap/dist/css/bootstrap.min.css";
 import AuthContext from "./context/AuthContext";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useState } from "react";
 import UserContext from "./context/UserContext";
 import type IUser from "./interface/IUser";
-import auth from "./api/auth";
+import { decodeToken } from "react-jwt";
+import { accessTokenKeyCookie } from "./constants/const";
 import getCookie from "./helper/getCookie";
-import refreshTokenKeyCookie from "./constants/const";
-import guestAxios from "./config/guestAxios";
+
+const phoneKey =
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/mobilephone";
+
+interface DecodedToken {
+  aud: string;
+  exp: number;
+  [phoneKey]: string;
+  iat: number;
+  nameid: string;
+  nbf: number;
+  role: string;
+  unique_name: string;
+}
 
 export async function loader({ request }: Route.LoaderArgs) {
-  // console.log("123")
   const cookieHeader = request.headers.get("cookie");
-  console.log("CookieHeader: ", cookieHeader )
-  if (!cookieHeader) return { isAuth: false, user: null, accessToken: null };
+  if (!cookieHeader) return { isAuth: false, user: null };
 
-  const token = getCookie({ request, name: refreshTokenKeyCookie });
-  console.log("token: ", token)
-  if (!token) return { isAuth: false, user: null, accessToken: null };
-  
-  try {
-    const result = await auth.loginViaToken(guestAxios, cookieHeader);
-    console.log("result: ", result)
-    if (result.data) {
-      return {
-        isAuth: true,
-        user: {
-          id: result.data.id,
-          name: result.data.name,
-          phoneNumber: result.data.phoneNumber,
-          role: result.data.role,
-        } as IUser,
-        accessToken: result.data.accessToken,
-      };
-    }
-  } catch {}
+  const accessToken = getCookie({ request, name: accessTokenKeyCookie });
+  if (!accessToken) return { isAuth: false, user: null };
 
-  return { isAuth: false, user: null, accessToken: null };
+  const decoded = decodeToken<DecodedToken>(accessToken);
+  if (!decoded) return { isAuth: false, user: null };
+
+  const user = {
+    id: decoded.nameid,
+    name: decoded.unique_name,
+    phoneNumber: decoded[phoneKey],
+    role: decoded.role,
+  } as IUser;
+  console.log("user: ", user)
+  return {
+    isAuth: true,
+    user
+  };
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -79,12 +85,11 @@ export default function App() {
   const [isAuth, setAuth] = useState(data.isAuth);
   const [user, setUser] = useState<IUser | null>(data.user);
 
-  useEffect(() => {
-    if (data.isAuth) {
-      setAuth(true)
-      setUser(data.user)
-    }
-  },[]);
+
+  useEffect(()=> {
+      setAuth(data.isAuth);
+      setUser(data.user);
+  }, [])
   return (
     <AuthContext.Provider value={{ isAuth, setAuth }}>
       <UserContext.Provider value={{ user, setUser }}>

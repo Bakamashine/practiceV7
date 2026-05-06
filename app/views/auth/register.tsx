@@ -1,14 +1,12 @@
 import { useContext, useState } from "react";
-import { useNavigate, Link, redirect } from "react-router";
-// import { getUserFromStorage } from "../../context/AuthContext";
+import { useNavigate, Link } from "react-router";
 import ShowError from "../../components/showError";
 import type IRegisterValidation from "../../interface/IRegisterValidation";
 import auth, { type UserData } from "../../api/auth";
 import UserContext from "~/context/UserContext";
 import AuthContext from "~/context/AuthContext";
 import { guestMiddleware } from "~/middleware/guestMiddleware";
-import type { Route } from "../+types";
-import { setAccessToken } from "~/config/authAxios";
+import type { Route } from "./+types/register";
 
 export const middleware: Route.MiddlewareFunction[] = [guestMiddleware];
 
@@ -64,7 +62,6 @@ export default function RegisterView() {
       });
 
       setAuth(true);
-      setAccessToken(result.data.accessToken);
       window.location.href = "/";
     }
   };

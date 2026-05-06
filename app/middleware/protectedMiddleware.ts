@@ -1,10 +1,10 @@
 import { redirect } from "react-router";
-import refreshTokenKeyCookie from "~/constants/const";
+import { accessTokenKeyCookie } from "~/constants/const";
 import getCookie from "~/helper/getCookie";
 
 export async function protectedMiddleware({ request }: { request: Request }) {
-    const refreshToken = getCookie({ request, name: refreshTokenKeyCookie });
-    if (!refreshToken) {
+    const accessToken = getCookie({ request, name: accessTokenKeyCookie });
+    if (!accessToken) {
         throw redirect("/login");
     }
 }

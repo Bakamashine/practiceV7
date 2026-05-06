@@ -1,6 +1,5 @@
 import { useContext, useState } from "react";
-import { useNavigate, Link, redirect } from "react-router";
-// import { getUserFromStorage } from "../../context/AuthContext";
+import { useNavigate, Link } from "react-router";
 import ShowError from "../../components/showError";
 import type ILoginValidation from "../../interface/ILoginValidation";
 import auth, { type UserData } from "../../api/auth";
@@ -8,7 +7,6 @@ import type { Route } from "./+types/login";
 import { guestMiddleware } from "~/middleware/guestMiddleware";
 import UserContext from "~/context/UserContext";
 import AuthContext from "~/context/AuthContext";
-import { setAccessToken } from "~/config/authAxios";
 
 export const middleware: Route.MiddlewareFunction[] = [guestMiddleware];
 
@@ -56,8 +54,7 @@ export default function LoginView() {
         role: userData.role,
       });
       setAuth(true);
-      setAccessToken(result.data.accessToken);
-      // window.location.href = "/";
+      window.location.href = "/";
     }
   };
 
