@@ -1,10 +1,20 @@
+import { useContext, useEffect } from "react";
 import { Link } from "react-router";
+import UserContext from "~/context/UserContext";
 // import { getUserFromStorage } from "../../context/AuthContext";
 
-export default function Header() {
-  // TODO
-  const user = null;
 
+export async function loader() {
+
+    return null;
+}
+
+export default function Header() {
+  const {user} = useContext(UserContext);
+
+  useEffect(() => {
+    console.log("User: ", user)
+  }, [user])
   return (
     <section className="myColorHeader">
       <nav className="navbar navbar-expand-lg d-flex justify-content-between align-items-center">
@@ -71,16 +81,16 @@ export default function Header() {
                         </Link>
                       </div>
                       <div className="mx-1 text-center">
-                        {/* <button
+                        <button
                           className="btn btn-link p-0 border-0"
                           onClick={() => {
-                            removeUser();
+                            // removeUser();
                             window.location.href = "/";
                           }}
                           title="Выйти"
                         >
                           <img src="img/logout.png" alt="Выход" />
-                        </button> */}
+                        </button>
                       </div>
                       <div className="mx-1 text-center">
                         <Link to={"/like"} className="text-decoration-none">

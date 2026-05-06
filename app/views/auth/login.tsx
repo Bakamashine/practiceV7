@@ -1,26 +1,46 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { useNavigate, Link, redirect } from "react-router";
 // import { getUserFromStorage } from "../../context/AuthContext";
 import ShowError from "../../components/showError";
 import type ILoginValidation from "../../interface/ILoginValidation";
 import auth, { type UserData } from "../../api/auth";
+import type { Route } from "./+types/login";
+import { guestMiddleware } from "~/middleware/guestMiddleware";
+import UserContext from "~/context/UserContext";
+import AuthContext from "~/context/AuthContext";
+import { setAccessToken } from "~/config/authAxios";
 
-// if (getUserFromStorage()) {
-//   throw redirect("/");
-// }
+export const middleware: Route.MiddlewareFunction[] = [guestMiddleware];
+
+export async function loader() {
+  return null;
+}
 
 export default function LoginView() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<ILoginValidation | null>(null);
   const navigate = useNavigate();
+  const { setUser } = useContext(UserContext);
+  const { setAuth } = useContext(AuthContext);
 
-  const submit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const result = await auth.login({
       phoneNumber: phone,
       password,
     });
+
+    if (result.status === 401) {
+      setError({
+        type: "",
+        title: "",
+        status: 401,
+        traceId: "",
+        errors: { PhoneNumber: ["Пользователь не найден"] },
+      } as ILoginValidation);
+      return;
+    }
 
     if (result.error) {
       setError(result.error as unknown as ILoginValidation);
@@ -29,14 +49,15 @@ export default function LoginView() {
 
     if (result.data) {
       const userData: UserData = result.data;
-      localStorage.setItem("user", JSON.stringify({
+      setUser({
         id: userData.id,
         name: userData.name,
         phoneNumber: userData.phoneNumber,
         role: userData.role,
-        authToken: userData.accessToken,
-      }));
-      navigate("/");
+      });
+      setAuth(true);
+      setAccessToken(result.data.accessToken);
+      // window.location.href = "/";
     }
   };
 
@@ -44,7 +65,12 @@ export default function LoginView() {
     <section className="d-flex justify-content-center registration content">
       <div className="text-center my-5">
         <h1 className="my-2">Добро пожаловать</h1>
-        <h5 className="my-4">Еще нет аккаунта? <Link to="/register" className="myA">Создай его</Link></h5>
+        <h5 className="my-4">
+          Еще нет аккаунта?{" "}
+          <Link to="/register" className="myA">
+            Создай его
+          </Link>
+        </h5>
         <form method="post" onSubmit={submit}>
           <input
             type="tel"
@@ -73,7 +99,9 @@ export default function LoginView() {
             </button>
           </div>
         </form>
-        <a href="NumberLogin.html" className="myA">Забыли пароль?</a>
+        <a href="NumberLogin.html" className="myA">
+          Забыли пароль?
+        </a>
       </div>
     </section>
   );

@@ -5,6 +5,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLoaderData,
 } from "react-router";
 
 import type { Route } from "./+types/root";
@@ -12,19 +13,44 @@ import Header from "./layouts/components/header";
 import Footer from "./layouts/components/footer";
 import "./css/main.css";
 import "/node_modules/bootstrap/dist/css/bootstrap.min.css";
+import AuthContext from "./context/AuthContext";
+import { useEffect, useEffectEvent, useState } from "react";
+import UserContext from "./context/UserContext";
+import type IUser from "./interface/IUser";
+import auth from "./api/auth";
+import getCookie from "./helper/getCookie";
+import refreshTokenKeyCookie from "./constants/const";
+import guestAxios from "./config/guestAxios";
 
-export const links: Route.LinksFunction = () => [
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
-  {
-    rel: "preconnect",
-    href: "https://fonts.gstatic.com",
-    crossOrigin: "anonymous",
-  },
-  {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
-  },
-];
+export async function loader({ request }: Route.LoaderArgs) {
+  // console.log("123")
+  const cookieHeader = request.headers.get("cookie");
+  console.log("CookieHeader: ", cookieHeader )
+  if (!cookieHeader) return { isAuth: false, user: null, accessToken: null };
+
+  const token = getCookie({ request, name: refreshTokenKeyCookie });
+  console.log("token: ", token)
+  if (!token) return { isAuth: false, user: null, accessToken: null };
+  
+  try {
+    const result = await auth.loginViaToken(guestAxios, cookieHeader);
+    console.log("result: ", result)
+    if (result.data) {
+      return {
+        isAuth: true,
+        user: {
+          id: result.data.id,
+          name: result.data.name,
+          phoneNumber: result.data.phoneNumber,
+          role: result.data.role,
+        } as IUser,
+        accessToken: result.data.accessToken,
+      };
+    }
+  } catch {}
+
+  return { isAuth: false, user: null, accessToken: null };
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -49,7 +75,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  const data = useLoaderData<typeof loader>();
+  const [isAuth, setAuth] = useState(data.isAuth);
+  const [user, setUser] = useState<IUser | null>(data.user);
+
+  useEffect(() => {
+    if (data.isAuth) {
+      setAuth(true)
+      setUser(data.user)
+    }
+  },[]);
+  return (
+    <AuthContext.Provider value={{ isAuth, setAuth }}>
+      <UserContext.Provider value={{ user, setUser }}>
+        <Outlet />
+      </UserContext.Provider>
+    </AuthContext.Provider>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

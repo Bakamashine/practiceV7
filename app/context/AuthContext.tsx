@@ -10,19 +10,11 @@ import type IUser from "~/interface/IUser";
 export interface AuthContextType {
   isAuth:  boolean;
   setAuth: (status: boolean) => void;
-  accessToken?: string;
-    setAccessToken: (value:string) => void
-
-  // user: IUser | null;
-  // setUser: (user: IUser | null) => void;
-  // logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   isAuth: false,
   setAuth: () => {},
-  accessToken: undefined,
-  setAccessToken: () => {}
 });
 
 

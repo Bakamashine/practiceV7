@@ -1,41 +1,21 @@
-import axios, { AxiosError } from "axios";
-import backend_url from "./url";
+import axios from "axios";
+import backend_url from "../constants/url";
 
-const isBrowser = typeof window !== "undefined";
+let accessToken: string | undefined;
+
+export const setAccessToken = (_accessToken: string) => (accessToken = _accessToken);
 
 const authAxios = axios.create({
   baseURL: backend_url,
-  validateStatus: (status) => status < 500,
+  withCredentials: true,
+  validateStatus: (status) => status <= 500,
 });
 
-authAxios.interceptors.request.use(
-  (config) => {
-    if (isBrowser) {
-      const userStr = localStorage.getItem("user");
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr);
-          if (user.authToken) {
-            config.headers.Authorization = `Bearer ${user.authToken}`;
-          }
-        } catch {
-        }
-      }
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-authAxios.interceptors.response.use(
-  (response) => response,
-  (error: AxiosError) => {
-    if (isBrowser && error.response?.status === 401) {
-      localStorage.removeItem("user");
-      window.location.href = "/login";
-    }
-    return Promise.reject(error);
+authAxios.interceptors.request.use((request) => {
+  if (accessToken) {
+    request.headers.Authorization = `Bearer ${accessToken}`;
   }
-);
+  return request;
+});
 
 export default authAxios;

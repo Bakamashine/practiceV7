@@ -1,3 +1,12 @@
+import type { Route } from "./+types/index";
+import { protectedMiddleware } from "~/middleware/protectedMiddleware";
+
+export const middleware: Route.MiddlewareFunction[] = [protectedMiddleware];
+
+export async function loader() {
+  return null;
+}
+
 export default function CommentsView() {
     return (
         <div className="reviews content">

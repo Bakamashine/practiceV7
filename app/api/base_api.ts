@@ -15,12 +15,14 @@ export default class BaseApi {
     method: string,
     url: string,
     payload?: object,
+    extraConfig?: AxiosRequestConfig,
   ): AxiosRequestConfig {
     return {
       method,
       url,
       data: payload,
       validateStatus: (status) => status < 500,
+      ...extraConfig,
     };
   }
 
@@ -29,9 +31,10 @@ export default class BaseApi {
     url: string,
     payload?: object,
     method: AxiosRequestConfig["method"] = "get",
+    extraConfig?: AxiosRequestConfig,
   ): Promise<ApiResponse<T>> {
     try {
-      const config = this.createRequestConfig(method, url, payload);
+      const config = this.createRequestConfig(method, url, payload, extraConfig);
       const response: AxiosResponse<T> = await axiosInstance.request<T>(config);
 
       if (response.status >= 400) {
@@ -67,8 +70,9 @@ export default class BaseApi {
     axiosInstance: AxiosInstance,
     url: string,
     payload?: object,
+    extraConfig?: AxiosRequestConfig,
   ): Promise<ApiResponse<T>> {
-    return this.request<T>(axiosInstance, url, payload, "post");
+    return this.request<T>(axiosInstance, url, payload, "post", extraConfig);
   }
 
   protected async put<T = any>(

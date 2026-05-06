@@ -15,7 +15,7 @@ const ProductShow: React.FC = () => {
       try {
         const response = await product.getById(id);
         if (response) setProduct(response);
-      } catch (e) {
+      } catch (e) { 
         console.log(e);
       } finally {
         setLoad(false);

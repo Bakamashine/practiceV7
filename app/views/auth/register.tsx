@@ -6,7 +6,15 @@ import type IRegisterValidation from "../../interface/IRegisterValidation";
 import auth, { type UserData } from "../../api/auth";
 import UserContext from "~/context/UserContext";
 import AuthContext from "~/context/AuthContext";
+import { guestMiddleware } from "~/middleware/guestMiddleware";
+import type { Route } from "../+types";
+import { setAccessToken } from "~/config/authAxios";
 
+export const middleware: Route.MiddlewareFunction[] = [guestMiddleware];
+
+export async function loader() {
+  return null;
+}
 
 export default function RegisterView() {
   const [name, setName] = useState("");
@@ -14,8 +22,8 @@ export default function RegisterView() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<IRegisterValidation | null>(null);
   const navigate = useNavigate();
-  const {setUser} = useContext(UserContext)
-  const {setAuth, setAccessToken} = useContext(AuthContext)
+  const { setUser } = useContext(UserContext);
+  const { setAuth } = useContext(AuthContext);
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -28,10 +36,20 @@ export default function RegisterView() {
     const result = await auth.register({
       fullName: "ivan",
       phoneNumber: "89805307554",
-      password: "moredock1"
-    })
+      password: "moredock1",
+    });
 
-    if (result.error) {
+    if (result.status == 401 || result.error) {
+      if (result.status === 401) {
+        setError({
+          type: "",
+          title: "",
+          status: 401,
+          traceId: "",
+          errors: { FullName: ["Пользователь уже существует"] },
+        } as IRegisterValidation);
+        return;
+      }
       setError(result.error as unknown as IRegisterValidation);
       return;
     }
@@ -42,12 +60,12 @@ export default function RegisterView() {
         id: userData.id,
         name: userData.name,
         phoneNumber: userData.phoneNumber,
-        role: userData.role
+        role: userData.role,
       });
 
       setAuth(true);
-      setAccessToken(result.data.accessToken)
-      navigate("/");
+      setAccessToken(result.data.accessToken);
+      window.location.href = "/";
     }
   };
 
@@ -103,4 +121,3 @@ export default function RegisterView() {
     </section>
   );
 }
-

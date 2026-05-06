@@ -1,10 +1,12 @@
-import { useNavigate, redirect } from "react-router";
-// import { getUserFromStorage } from "../../context/AuthContext";
+import { useNavigate } from "react-router";
+import type { Route } from "./+types/like";
+import { protectedMiddleware } from "~/middleware/protectedMiddleware";
 
-// const user = getUserFromStorage();
-// if (!user) {
-//   throw redirect("/login");
-// }
+export const middleware: Route.MiddlewareFunction[] = [protectedMiddleware];
+
+export async function loader() {
+  return null;
+}
 
 const LiveView: React.FC = () => {
     const navigation = useNavigate()

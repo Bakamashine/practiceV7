@@ -1,6 +1,7 @@
 import { decodeToken } from "react-jwt";
 import guestAxios from "../config/guestAxios";
 import BaseApi, { type ApiResponse } from "./base_api";
+import type { AxiosInstance } from "axios";
 
 export interface UserLogin {
   fullName?: string;
@@ -57,7 +58,7 @@ class Auth extends BaseApi {
   }
 
   async register(user: UserLogin): Promise<ApiResponse<UserData>> {
-    const result = await this.post<AuthResponse>(guestAxios, "/Auth/register", {
+    const result = await this.post<AuthResponse>(guestAxios, "Auth/register", {
       fullName: user.fullName,
       phoneNumber: user.phoneNumber,
       password: user.password,
@@ -71,7 +72,7 @@ class Auth extends BaseApi {
   }
 
   async login(user: UserLogin): Promise<ApiResponse<UserData>> {
-    const result = await this.post<AuthResponse>(guestAxios, "/Auth/login", {
+    const result = await this.post<AuthResponse>(guestAxios, "Auth/login", {
       PhoneNumber: user.phoneNumber,
       Password: user.password,
     });
@@ -80,6 +81,21 @@ class Auth extends BaseApi {
       return { data: null, error: result.error, status: result.status };
     }
 
+    return this.decodeToUserData(result.data!.accessToken, result.data!.refreshToken);
+  }
+
+  async loginViaToken(axiosInstance: AxiosInstance, cookieHeader: string | null): Promise<ApiResponse<UserData>> {
+    const result = await this.post<AuthResponse>(
+      axiosInstance,
+      "Auth/loginViaToken",
+      {},
+      cookieHeader ? { headers: { Cookie: cookieHeader } } : undefined
+    );
+
+    if (result.error) {
+      return { data: null, error: result.error, status: result.status };
+    }
+    console.log("LoginViaToken: ", result)
     return this.decodeToUserData(result.data!.accessToken, result.data!.refreshToken);
   }
 }

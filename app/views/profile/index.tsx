@@ -1,11 +1,17 @@
-import { useNavigate } from "react-router";
-// import { getUserFromStorage } from "../../context/AuthContext";
-import { redirect } from "react-router";
+import { useNavigate, redirect } from "react-router";
+import type { Route } from "./+types/index";
+import { protectedMiddleware } from "~/middleware/protectedMiddleware";
+
+export const middleware: Route.MiddlewareFunction[] = [protectedMiddleware];
 
 // const user = getUserFromStorage();
 // if (!user) {
 //   throw redirect("/login");
 // }
+
+export async function loader() {
+  return null;
+}
 
 const ProfileView: React.FC = () => {
   const navigation = useNavigate();

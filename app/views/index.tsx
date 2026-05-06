@@ -56,6 +56,7 @@ export default function MainPage({ loaderData }: Route.ComponentProps) {
                         <button
                           type="button"
                           className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center  p-2 text-white w-100"
+                          onClick={() => navigation(`/product/${item.id}`)}
                         >
                           <span>Подробнее</span>
                         </button>
