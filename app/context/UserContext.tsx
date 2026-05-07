@@ -5,14 +5,12 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import type IUser from "~/interface/IUser";
+import type { UserData } from "~/api/auth";
 
 export interface UserContextType {
-//   isAuth:  boolean;
-//   setAuth: () => void;
-  user: IUser | null;
-  setUser: (user: IUser | null) => void;
-  // logout: () => void;
+
+  user: UserData | null;
+  setUser: (user: UserData | null) => void;
 }
 
 const UserContext = createContext<UserContextType>({

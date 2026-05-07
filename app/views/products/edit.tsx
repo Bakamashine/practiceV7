@@ -1,11 +1,19 @@
 import { useState, useRef, type ChangeEvent } from "react";
+import product from "~/api/product";
+import type { Route } from "./+types/edit";
 
-const EditProduct: React.FC = () => {
-  const [name, setName] = useState<string>("");
-  const [phone, setPhone] = useState<string>("");
-  const [address, setAddress] = useState<string>("");
-  const [type, setType] = useState<string>("");
-  const [description, setDescription] = useState<string>("");
+
+
+export async function loader({params}: Route.LoaderArgs) {
+    const myproduct = await product.getById(params.id);
+    return myproduct;
+}
+const EditProduct = ({loaderData}: Route.ComponentProps) => {
+  const [name, setName] = useState<string>(loaderData!.productName);
+  // const [phone, setPhone] = useState<string>(loaderData!.);
+  const [address, setAddress] = useState<string>(loaderData!.address);
+  const [type, setType] = useState<string>(loaderData!.ypkId);
+  const [description, setDescription] = useState<string>(loaderData!.productInfo);
   const [offerType, setOfferType] = useState<string>("product");
   const [image, setImage] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -21,7 +29,7 @@ const EditProduct: React.FC = () => {
   };
 
   const handleSubmit = () => {
-    console.log({ name, phone, address, type, description, offerType, image });
+    // console.log({ name, phone, address, type, description, offerType, image });
   };
 
   return (
@@ -75,7 +83,7 @@ const EditProduct: React.FC = () => {
                     />
                   </div>
 
-                  <div className="mb-3">
+                  {/* <div className="mb-3">
                     <input
                       type="tel"
                       placeholder="Номер телефона для связи"
@@ -83,7 +91,7 @@ const EditProduct: React.FC = () => {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                     />
-                  </div>
+                  </div> */}
 
                   <div className="mb-3">
                     <input

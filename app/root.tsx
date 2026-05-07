@@ -8,54 +8,23 @@ import {
   useLoaderData,
 } from "react-router";
 
+// import Cookies from 'js-cookie'
+import Cookies from "universal-cookie";
+
 import type { Route } from "./+types/root";
 import Header from "./layouts/components/header";
 import Footer from "./layouts/components/footer";
 import "./css/main.css";
 import "/node_modules/bootstrap/dist/css/bootstrap.min.css";
 import AuthContext from "./context/AuthContext";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import UserContext from "./context/UserContext";
-import type IUser from "./interface/IUser";
-import { decodeToken } from "react-jwt";
-import { accessTokenKeyCookie } from "./constants/const";
-import getCookie from "./helper/getCookie";
+import auth, { type UserData } from "./api/auth";
+import Loader from "./components/Loader";
 
-const phoneKey =
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/mobilephone";
-
-interface DecodedToken {
-  aud: string;
-  exp: number;
-  [phoneKey]: string;
-  iat: number;
-  nameid: string;
-  nbf: number;
-  role: string;
-  unique_name: string;
-}
-
-export async function loader({ request }: Route.LoaderArgs) {
-  const cookieHeader = request.headers.get("cookie");
-  if (!cookieHeader) return { isAuth: false, user: null };
-
-  const accessToken = getCookie({ request, name: accessTokenKeyCookie });
-  if (!accessToken) return { isAuth: false, user: null };
-
-  const decoded = decodeToken<DecodedToken>(accessToken);
-  if (!decoded) return { isAuth: false, user: null };
-
-  const user = {
-    id: decoded.nameid,
-    name: decoded.unique_name,
-    phoneNumber: decoded[phoneKey],
-    role: decoded.role,
-  } as IUser;
-  console.log("user: ", user)
-  return {
-    isAuth: true,
-    user
-  };
+export async function loader() {
+  return null;
+  // return { isAuth: false, user: null };
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -69,31 +38,54 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
 
       <body>
-        <Header />
         {children}
         <ScrollRestoration />
         <Scripts />
-
-        <Footer />
       </body>
     </html>
   );
 }
 
 export default function App() {
-  const data = useLoaderData<typeof loader>();
-  const [isAuth, setAuth] = useState(data.isAuth);
-  const [user, setUser] = useState<IUser | null>(data.user);
+  const [isAuth, setAuth] = useState<boolean>(false);
+  const [user, setUser] = useState<UserData | null>(null);
+  const [load, setLoad] = useState(true);
 
+  const getUser = async () => {
+    try {
+      const result = await auth.getMe();
+      if (result) {
+        console.log("User: ", result.data);
+        setUser(result.data);
+        setAuth(true);
+      }
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoad(false);
+    }
+  };
 
-  useEffect(()=> {
-      setAuth(data.isAuth);
-      setUser(data.user);
-  }, [])
+  // TODO: Удалить js-cookie и universal-cookie
+  useEffect(() => {
+    // const cookies = new Cookies(null, { path: "/" });
+    // const refreshToken = cookies.get("refreshToken");
+    // const accessToken = cookies.get("accessToken");
+    // console.log("refreshToken: ", refreshToken);
+    // console.log("accessToken: ", accessToken);
+    getUser();
+  }, []);
+
+  if (load) {
+    return <Loader />;
+  }
   return (
     <AuthContext.Provider value={{ isAuth, setAuth }}>
       <UserContext.Provider value={{ user, setUser }}>
+        <Header />
+
         <Outlet />
+        <Footer />
       </UserContext.Provider>
     </AuthContext.Provider>
   );

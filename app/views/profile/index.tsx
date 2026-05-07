@@ -1,37 +1,74 @@
 import { useNavigate, redirect } from "react-router";
 import type { Route } from "./+types/index";
+// import { protectedMiddleware } from "~/middleware/protectedMiddleware";
+import { useContext, useEffect, useState } from "react";
+import UserContext from "~/context/UserContext";
+import default_image_url from "~/constants/image";
+import user from "~/api/user";
+import type { UserData } from "~/api/auth";
+import Loader from "~/components/Loader";
 import { protectedMiddleware } from "~/middleware/protectedMiddleware";
 
 export const middleware: Route.MiddlewareFunction[] = [protectedMiddleware];
 
-// const user = getUserFromStorage();
-// if (!user) {
-//   throw redirect("/login");
+// export async function loader() {
+//   const currentUser = await user.getFullInfo();
+//   return currentUser.data;
+//   // return null;
 // }
 
 export async function loader() {
   return null;
 }
 
-const ProfileView: React.FC = () => {
+
+const ProfileView = () => {
+  const [currentUser, setUser] = useState<UserData | undefined>(undefined);
+  const [load, setLoad] = useState(true);
   const navigation = useNavigate();
+  const getData = async () => {
+    try {
+      const newUser = await user.getFullInfo();
+      if (newUser.data) setUser(newUser.data);
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoad(false);
+    }
+  };
+  useEffect(() => {
+    getData();
+  }, []);
+
+  if (load) {
+    return <Loader />;
+  }
   return (
     <section className="catalog profile">
       <div className="m-3">
+        <h2>Ваши данные</h2>
+
         <div className="d-flex align-items-center justify-content-between">
-          <img src="img/fotoUser.png" className="avatar" alt="..." />
+          <img
+            src={currentUser?.avatar || default_image_url}
+            className="avatar"
+            alt="..."
+          />
+
           <div className="mx-3" style={{ flex: 1 }}>
             <h5>
-              <b>Фио: </b>Карикова Ирина Юрьевна
+              <b>Фио: </b>
+              {currentUser!.name}
             </h5>
             <hr style={{ width: "100%", margin: 0 }} />
             <p>
-              <b>Номер телефона: </b>8 999 999 99 99
+              <b>Номер телефона: </b>
+              {currentUser!.phoneNumber}
             </p>
             <hr style={{ width: "100%", margin: 0 }} />
             <p>
-              <b>Доп информация: </b>Lorem, ipsum dolor sit amet consectetur
-              adipisicing elit. Quas, libero cupiditate?
+              <b>Доп информация: </b>
+              {currentUser?.userInfo || <i>Отсуствует</i>}
             </p>
             <hr style={{ width: "100%", margin: 0 }} />
           </div>
@@ -47,7 +84,7 @@ const ProfileView: React.FC = () => {
                   type="button"
                   className="sign-out d-flex edit justify-content-center align-items-center gap-2 p-2 text-white w-100"
                 >
-                  <span>ваши данные</span>
+                  <span>Редактировать</span>
                   <img
                     src="img/edit.png"
                     alt=""
@@ -69,39 +106,45 @@ const ProfileView: React.FC = () => {
                 </button>
               </a>
               {/* ======================= Админ кнопки ======================= */}
-              <a
-                href="redactProduct.html"
-                className="text-decoration-none flex-grow-1 flex-md-grow-0"
-              >
-                <button
-                  type="button"
-                  className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
-                >
-                  <span>Редактировать товары/услуги</span>
-                </button>
-              </a>
-              <a
-                href="redactUser.html"
-                className="text-decoration-none flex-grow-1 flex-md-grow-0"
-              >
-                <button
-                  type="button"
-                  className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
-                >
-                  <span>Управление пользователями</span>
-                </button>
-              </a>
-              <a
-                href="redactStatusOrder.html"
-                className="text-decoration-none flex-grow-1 flex-md-grow-0"
-              >
-                <button
-                  type="button"
-                  className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
-                >
-                  <span>Управление заказами</span>
-                </button>
-              </a>
+              {currentUser!.role == "Admin" && (
+                <>
+                  <a
+                    href="redactProduct.html"
+                    className="text-decoration-none flex-grow-1 flex-md-grow-0"
+                  >
+                    <button
+                      type="button"
+                      // onClick={navigation(`/product/${}`)}
+                      className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
+                    >
+                      <span>Редактировать товары/услуги</span>
+                    </button>
+                  </a>
+                  <a
+                    href="redactUser.html"
+                    className="text-decoration-none flex-grow-1 flex-md-grow-0"
+                  >
+                    <button
+                      type="button"
+                      className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
+                    >
+                      <span>Управление пользователями</span>
+                    </button>
+                  </a>
+                  <a
+                    href="redactStatusOrder.html"
+                    className="text-decoration-none flex-grow-1 flex-md-grow-0"
+                  >
+                    <button
+                      type="button"
+                      className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
+                    >
+                      <span>Управление заказами</span>
+                    </button>
+                  </a>
+                </>
+              )}
+
               <a
                 href="formComments.html"
                 className="text-decoration-none flex-grow-1 flex-md-grow-0"
@@ -202,7 +245,7 @@ const ProfileView: React.FC = () => {
         <div className="row row-cols-1 row-cols-2 row-cols-sm-2 row-cols-md-3 g-4 my-3">
           <div className="col d-flex">
             <a
-            //   href="infoForUser.html"
+              //   href="infoForUser.html"
               className="text-decoration-none text-black"
             >
               <div className="rounded shadow p-3 w-100">

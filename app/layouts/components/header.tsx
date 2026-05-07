@@ -1,5 +1,6 @@
 import { useContext, useEffect } from "react";
 import { Link } from "react-router";
+import AuthContext from "~/context/AuthContext";
 import UserContext from "~/context/UserContext";
 // import { getUserFromStorage } from "../../context/AuthContext";
 
@@ -11,12 +12,14 @@ export async function loader() {
 
 export default function Header() {
   const {user} = useContext(UserContext);
+  const {isAuth} = useContext(AuthContext);
 
-  useEffect(() => {
-    console.log("User: ", user)
-  }, [user])
+  // useEffect(() => {
+  //   console.log("User: ", user)
+  // }, [])
   return (
     <section className="myColorHeader">
+      {user && <p>Добро пожаловать {user.name}</p>}
       <nav className="navbar navbar-expand-lg d-flex justify-content-between align-items-center">
         <div className="container-fluid">
           <Link className="navbar-brand" to={"/"}>
@@ -68,33 +71,35 @@ export default function Header() {
                 <div className="d-flex me-3 myStyleTextLogo header-icons">
                   <div className="mx-1 text-center">
                     <Link to="/comments" className="text-decoration-none">
-                      <img src="/img/comment.png" alt="Иконка комментария" />
+                      <img className="header__image__size" src="/img/comment.png" alt="Иконка комментария" />
                       <p className="header__button__text">Комментарии</p>
                     </Link>
                   </div>
-                  {user ? (
+                  {isAuth ? (
                     <>
                       <div className="mx-1 text-center">
                         <Link to={"/profile"} className="text-decoration-none">
-                          <img src="img/user.png" alt="Иконка пользователя" />
+                          <img className="header__image__size" src="img/user.png" alt="Иконка пользователя" />
                           <p className="header__button__text">Профиль</p>
                         </Link>
                       </div>
                       <div className="mx-1 text-center">
-                        <button
-                          className="btn btn-link p-0 border-0"
-                          onClick={() => {
-                            // removeUser();
+                        <Link
+                          to="/login"
+                          className="text-decoration-none"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            console.log("logout clicked");
                             window.location.href = "/";
                           }}
-                          title="Выйти"
                         >
-                          <img src="img/logout.png" alt="Выход" />
-                        </button>
+                          <img className="header__image__size header__image-logout" src="img/logout.png" alt="Выход" />
+                          <p className="header__button__text">Выйти</p>
+                        </Link>
                       </div>
                       <div className="mx-1 text-center">
                         <Link to={"/like"} className="text-decoration-none">
-                          <img src="img/heart.png" alt="Иконка сердца" />
+                          <img className="header__image__size" src="img/heart.png" alt="Иконка сердца" />
                           <p className="header__button__text">Избранное</p>
                         </Link>
                       </div>
@@ -102,7 +107,7 @@ export default function Header() {
                   ) : (
                     <div className="mx-1 text-center">
                       <Link to={"/login"} className="text-decoration-none">
-                        <img src="img/user.png" alt="Войти" />
+                        <img className="header__image__size" src="img/user.png" alt="Войти" />
                         <p className="header__button__text">Войти</p>
                       </Link>
                     </div>
@@ -111,6 +116,7 @@ export default function Header() {
                   <div className="mx-1 text-center">
                     <a href="college.html">
                       <img
+                      className="header__image__size"
                         src="img/material-symbols_info-outline-rounded1.png"
                         alt="Информация"
                       />

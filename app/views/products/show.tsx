@@ -1,40 +1,25 @@
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useLoaderData, useNavigate, useParams } from "react-router";
 import product, { type ProductResponse } from "../../api/product";
 import { useEffect, useState } from "react";
 import default_image_url from "../../constants/image";
 import { LoaderOverlay } from "../../components/Loader";
+import type { Route } from "./+types/show";
+// import type { Route } from ";
 
+
+export async function loader({params}: Route.LoaderArgs) {
+  const result = await product.getById(params.id);
+  return result;
+}
 const ProductShow: React.FC = () => {
-  const [myproduct, setProduct] = useState<ProductResponse>();
+  const myproduct = useLoaderData<typeof loader>();
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
-  const [load, setLoad] = useState(true);
 
-  const getData = async () => {
-    if (id) {
-      try {
-        const response = await product.getById(id);
-        if (response) setProduct(response);
-      } catch (e) { 
-        console.log(e);
-      } finally {
-        setLoad(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    getData();
-  }, []);
-
-  if (load) {
-    return <LoaderOverlay />;
-  }
   return (
     <section className="mx-4 myInfoCard catalog content">
       <div>
         <img
-          src="img/arrow-left.png"
+          src="img/arrow-left.png"  
           alt="Назад"
           className="my-2 myImgArrow cursor-pointer"
           onClick={(e) => navigate(-1)}
@@ -51,7 +36,7 @@ const ProductShow: React.FC = () => {
             <h3>{myproduct?.productName}</h3>
             {/* <h3>Исполнитель</h3> */}
             {/* <h3>Номер телефона</h3> */}
-            <h3>Адрес: {myproduct?.adress}</h3>
+            <h3>Адрес: {myproduct?.address}</h3>
             <h3>Цена: {myproduct?.productCost}</h3>
             <p>{myproduct?.productInfo}</p>
             <a href="Rate_shop.html">

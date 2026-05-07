@@ -1,12 +1,10 @@
-import { useContext, useState } from "react";
-import { useNavigate, Link } from "react-router";
+import { useState } from "react";
+import { Link } from "react-router";
 import ShowError from "../../components/showError";
 import type ILoginValidation from "../../interface/ILoginValidation";
-import auth, { type UserData } from "../../api/auth";
+import auth from "../../api/auth";
 import type { Route } from "./+types/login";
 import { guestMiddleware } from "~/middleware/guestMiddleware";
-import UserContext from "~/context/UserContext";
-import AuthContext from "~/context/AuthContext";
 
 export const middleware: Route.MiddlewareFunction[] = [guestMiddleware];
 
@@ -18,9 +16,6 @@ export default function LoginView() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<ILoginValidation | null>(null);
-  const navigate = useNavigate();
-  const { setUser } = useContext(UserContext);
-  const { setAuth } = useContext(AuthContext);
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -46,14 +41,6 @@ export default function LoginView() {
     }
 
     if (result.data) {
-      const userData: UserData = result.data;
-      setUser({
-        id: userData.id,
-        name: userData.name,
-        phoneNumber: userData.phoneNumber,
-        role: userData.role,
-      });
-      setAuth(true);
       window.location.href = "/";
     }
   };

@@ -6,11 +6,17 @@ import {
 
 export default [
   index("./views/index.tsx"),
+
+  // Product
   route("product/:id", "./views/products/show.tsx"),
-  route("edit_product", "./views/products/edit.tsx"),
+  route("product/:id/edit", "./views/products/edit.tsx"),
   route("buy_page", "./views/products/buy_page.tsx"),
+
+  // Auth
   route("login", "./views/auth/login.tsx"),
   route("register", "./views/auth/register.tsx"),
+
+
   route("profile", "./views/profile/index.tsx"),
   route("like", "./views/profile/like.tsx"),
   route("comments", "./views/comments/index.tsx"),

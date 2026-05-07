@@ -1,6 +1,9 @@
 import { decodeToken } from "react-jwt";
 import guestAxios from "../config/guestAxios";
 import BaseApi, { type ApiResponse } from "./base_api";
+import type { AxiosRequestConfig } from "axios";
+import { redirect } from "react-router";
+// import type IUser from "../interface/IUser";
 
 export interface UserLogin {
   fullName?: string;
@@ -18,6 +21,8 @@ export interface UserData extends AuthResponse {
   name: string;
   phoneNumber: string;
   role: string;
+  userInfo?: string;
+  avatar?: string;
 }
 
 const phoneKey =
@@ -35,7 +40,10 @@ interface DecodedToken {
 }
 
 class Auth extends BaseApi {
-  private decodeToUserData(accessToken: string, refreshToken: string): ApiResponse<UserData> {
+  private decodeToUserData(
+    accessToken: string,
+    refreshToken: string,
+  ): ApiResponse<UserData> {
     const decodedToken = decodeToken<DecodedToken>(accessToken);
 
     if (!decodedToken) {
@@ -67,7 +75,10 @@ class Auth extends BaseApi {
       return { data: null, error: result.error, status: result.status };
     }
 
-    return this.decodeToUserData(result.data!.accessToken, result.data!.refreshToken);
+    return this.decodeToUserData(
+      result.data!.accessToken,
+      result.data!.refreshToken,
+    );
   }
 
   async login(user: UserLogin): Promise<ApiResponse<UserData>> {
@@ -80,7 +91,26 @@ class Auth extends BaseApi {
       return { data: null, error: result.error, status: result.status };
     }
 
-    return this.decodeToUserData(result.data!.accessToken, result.data!.refreshToken);
+    return this.decodeToUserData(
+      result.data!.accessToken,
+      result.data!.refreshToken,
+    );
+  }
+
+  async getMe(): Promise<ApiResponse<UserData> | undefined> {
+    const result = await this.get<UserData>(guestAxios, "Auth/me");
+    if (result.status == 401) {
+      const refresh = await this.refreshToken();
+      if (refresh.status == 401) {
+        return undefined;
+      }
+      return this.getMe();
+    }
+    return result;
+  }
+
+  async refreshToken(): Promise<ApiResponse<AuthResponse>> {
+    return this.post<AuthResponse>(guestAxios, "Auth/loginViaToken", {});
   }
 }
 

@@ -3,8 +3,14 @@ import { accessTokenKeyCookie } from "~/constants/const";
 import getCookie from "~/helper/getCookie";
 
 export async function protectedMiddleware({ request }: { request: Request }) {
-    const accessToken = getCookie({ request, name: accessTokenKeyCookie });
-    if (!accessToken) {
-        throw redirect("/login");
+    // const accessToken = getCookie({ request, name: accessTokenKeyCookie });
+    // if (!accessToken) {
+    //     throw redirect("/login");
+    // }
+
+    const cookie  = request.headers.get("cookie")
+
+    if (!cookie || !cookie.includes("accessToken")) {
+        throw redirect("/login")
     }
 }

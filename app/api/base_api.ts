@@ -62,8 +62,9 @@ export default class BaseApi {
   protected async get<T = any>(
     axiosInstance: AxiosInstance,
     url: string,
+    extraConfig?: AxiosRequestConfig,
   ): Promise<ApiResponse<T>> {
-    return this.request<T>(axiosInstance, url);
+    return this.request<T>(axiosInstance, url, undefined, "get", extraConfig);
   }
 
   protected async post<T = any>(

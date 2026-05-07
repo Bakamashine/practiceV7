@@ -12,7 +12,7 @@ export interface ProductResponse {
     isProduct: boolean,
     photoPath?: string,
     photoUrl?: string,
-    adress: string
+    address: string
 }
 
 export interface ProductResponseAny {
@@ -43,6 +43,10 @@ class Product extends BaseApi {
         const response = await this.get<ProductResponse>(guestAxios, `/Product/${id}`)
         console.log("Product detail: ", response)
         return response.data;
+    }
+
+    async postLike(id: string) {
+        
     }
 }
 
