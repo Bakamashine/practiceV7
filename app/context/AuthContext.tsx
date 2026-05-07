@@ -5,7 +5,6 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import type IUser from "~/interface/IUser";
 
 export interface AuthContextType {
   isAuth:  boolean;

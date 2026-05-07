@@ -12,17 +12,14 @@
     "@react-router/node": "7.14.0",
     "@react-router/serve": "7.14.0",
     "@types/axios": "^0.9.36",
-    "@types/js-cookie": "^3.0.6",
     "axios": "^1.15.2",
     "bootstrap": "^5.3.8",
     "isbot": "^5.1.36",
-    "js-cookie": "^3.0.5",
     "react": "^19.2.4",
     "react-bootstrap": "^2.10.10",
     "react-dom": "^19.2.4",
     "react-jwt": "^2.1.1",
-    "react-router": "7.14.0",
-    "universal-cookie": "^8.1.2"
+    "react-router": "7.14.0"
   },
   "devDependencies": {
     "@react-router/dev": "7.14.0",

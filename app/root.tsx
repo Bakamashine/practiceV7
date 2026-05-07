@@ -8,8 +8,6 @@ import {
   useLoaderData,
 } from "react-router";
 
-// import Cookies from 'js-cookie'
-import Cookies from "universal-cookie";
 
 import type { Route } from "./+types/root";
 import Header from "./layouts/components/header";
@@ -66,13 +64,7 @@ export default function App() {
     }
   };
 
-  // TODO: Удалить js-cookie и universal-cookie
   useEffect(() => {
-    // const cookies = new Cookies(null, { path: "/" });
-    // const refreshToken = cookies.get("refreshToken");
-    // const accessToken = cookies.get("accessToken");
-    // console.log("refreshToken: ", refreshToken);
-    // console.log("accessToken: ", accessToken);
     getUser();
   }, []);
 
