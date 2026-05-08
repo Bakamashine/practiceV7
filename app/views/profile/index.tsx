@@ -1,4 +1,4 @@
-import { useNavigate, redirect } from "react-router";
+import { useNavigate, redirect, Link } from "react-router";
 import type { Route } from "./+types/index";
 // import { protectedMiddleware } from "~/middleware/protectedMiddleware";
 import { useContext, useEffect, useState } from "react";
@@ -21,9 +21,9 @@ export async function loader() {
   return null;
 }
 
-
 const ProfileView = () => {
   const [currentUser, setUser] = useState<UserData | undefined>(undefined);
+  const {user: myUser} = useContext(UserContext)
   const [load, setLoad] = useState(true);
   const navigation = useNavigate();
   const getData = async () => {
@@ -76,14 +76,11 @@ const ProfileView = () => {
         <div className="container-fluid px-2 px-md-3">
           <div className="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 my-3">
             <div className="d-flex flex-wrap justify-content-center justify-content-md-start gap-2 gap-md-3">
-              <a
-                href="redactorProfile.html"
+              <Link
+                to={"/profile/edit"}
                 className="text-decoration-none flex-grow-1 flex-md-grow-0"
               >
-                <button
-                  type="button"
-                  className="sign-out d-flex edit justify-content-center align-items-center gap-2 p-2 text-white w-100"
-                >
+                <div className="sign-out d-flex edit justify-content-center align-items-center gap-2 p-2 text-white w-100">
                   <span>Редактировать</span>
                   <img
                     src="img/edit.png"
@@ -91,11 +88,12 @@ const ProfileView = () => {
                     className="profileButton"
                     style={{ width: 16, height: 16 }}
                   />
-                </button>
-              </a>
+                </div>
+              </Link>
               {/* ======================= Исполнитель кнопки======================= */}
-              <a
-                href="addProduct.html"
+              <Link
+                // href="addProduct.html"
+                to={"#"}
                 className="text-decoration-none flex-grow-1 flex-md-grow-0"
               >
                 <button
@@ -104,24 +102,24 @@ const ProfileView = () => {
                 >
                   <span>Добавить товары/услуги</span>
                 </button>
-              </a>
+              </Link>
               {/* ======================= Админ кнопки ======================= */}
-              {currentUser!.role == "Admin" && (
+              {myUser!.role == "Admin" && (
                 <>
-                  <a
-                    href="redactProduct.html"
+                  <Link
+                    to={"/product/edit_page"}
                     className="text-decoration-none flex-grow-1 flex-md-grow-0"
                   >
                     <button
                       type="button"
-                      // onClick={navigation(`/product/${}`)}
+                      // onClick={() => navigation(`/product/edit_page`)}
                       className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
                     >
                       <span>Редактировать товары/услуги</span>
                     </button>
-                  </a>
-                  <a
-                    href="redactUser.html"
+                  </Link>
+                  <Link
+                    to="#"
                     className="text-decoration-none flex-grow-1 flex-md-grow-0"
                   >
                     <button
@@ -130,9 +128,9 @@ const ProfileView = () => {
                     >
                       <span>Управление пользователями</span>
                     </button>
-                  </a>
-                  <a
-                    href="redactStatusOrder.html"
+                  </Link>
+                  <Link
+                    to="#"
                     className="text-decoration-none flex-grow-1 flex-md-grow-0"
                   >
                     <button
@@ -141,12 +139,12 @@ const ProfileView = () => {
                     >
                       <span>Управление заказами</span>
                     </button>
-                  </a>
+                  </Link>
                 </>
               )}
 
-              <a
-                href="formComments.html"
+              <Link
+                to="#"
                 className="text-decoration-none flex-grow-1 flex-md-grow-0"
               >
                 <button
@@ -155,7 +153,7 @@ const ProfileView = () => {
                 >
                   <span>Оставить отзыв</span>
                 </button>
-              </a>
+              </Link>
             </div>
             <div className="flex-shrink-0">
               <button
@@ -180,10 +178,7 @@ const ProfileView = () => {
         </div>
         <div className="row row-cols-1 row-cols-2 row-cols-sm-2 row-cols-md-3 g-4 my-3">
           <div className="col d-flex">
-            <a
-              href="infoForUser.html"
-              className="text-decoration-none text-black"
-            >
+            <Link to="#" className="text-decoration-none text-black">
               <div className="rounded shadow p-3 w-100">
                 <img
                   src="img/Group 19.png"
@@ -199,7 +194,7 @@ const ProfileView = () => {
                   <p>Телефон</p>
                 </div>
               </div>
-            </a>
+            </Link>
           </div>
           <div className="col d-flex">
             <div className="rounded shadow p-3 w-100">
@@ -244,10 +239,7 @@ const ProfileView = () => {
         </div>
         <div className="row row-cols-1 row-cols-2 row-cols-sm-2 row-cols-md-3 g-4 my-3">
           <div className="col d-flex">
-            <a
-              //   href="infoForUser.html"
-              className="text-decoration-none text-black"
-            >
+            <Link to="#" className="text-decoration-none text-black">
               <div className="rounded shadow p-3 w-100">
                 <img
                   src="img/Group 19.png"
@@ -270,8 +262,8 @@ const ProfileView = () => {
                   <span>Редактировать</span>
                 </button>
 
-                <a
-                  href="hide.html"
+                <Link
+                  to="#"
                   className="text-decoration-none flex-grow-1 flex-md-grow-0"
                 >
                   <button
@@ -280,9 +272,9 @@ const ProfileView = () => {
                   >
                     <span>Скрыть</span>
                   </button>
-                </a>
-                <a
-                  href="return.html"
+                </Link>
+                <Link
+                  to="#"
                   className="text-decoration-none flex-grow-1 flex-md-grow-0"
                 >
                   <button
@@ -291,9 +283,9 @@ const ProfileView = () => {
                   >
                     <span>Вернуть</span>
                   </button>
-                </a>
+                </Link>
               </div>
-            </a>
+            </Link>
           </div>
           <div className="col d-flex">
             <div className="rounded shadow p-3 w-100">

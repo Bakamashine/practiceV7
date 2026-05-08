@@ -9,6 +9,10 @@ class User extends BaseApi {
     console.log("GetFull user info: ", result.data);
     return result;
   }
+
+  async updateUserInfo(user: UserData) {
+    // const result = await this.post
+  }
 }
 
 export default new User();

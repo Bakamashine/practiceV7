@@ -10,6 +10,7 @@ export default [
   // Product
   route("product/:id", "./views/products/show.tsx"),
   route("product/:id/edit", "./views/products/edit.tsx"),
+  route("product/edit_page", "./views/products/edit_page.tsx"),
   route("buy_page", "./views/products/buy_page.tsx"),
 
   // Auth
@@ -17,8 +18,11 @@ export default [
   route("register", "./views/auth/register.tsx"),
 
 
+  // Profile
   route("profile", "./views/profile/index.tsx"),
   route("like", "./views/profile/like.tsx"),
+  route("/profile/edit", './views/profile/edit.tsx'),
+
   route("comments", "./views/comments/index.tsx"),
   route("*", "./views/notFound.tsx"),
 ] satisfies RouteConfig;

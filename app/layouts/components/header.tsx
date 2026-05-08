@@ -23,7 +23,7 @@ export default function Header() {
       <nav className="navbar navbar-expand-lg d-flex justify-content-between align-items-center">
         <div className="container-fluid">
           <Link className="navbar-brand" to={"/"}>
-            <img src="img/logo.png" alt="Логотип" className="myImg" />
+            <img src="/img/logo.png" alt="Логотип" className="myImg" />
           </Link>
 
           <div className="mySearh d-flex align-items-center justify-content-around flex-grow">
@@ -43,7 +43,7 @@ export default function Header() {
                     data-bs-toggle="dropdown"
                     aria-expanded="false"
                   >
-                    <img src="img/Group 2.png" alt="Иконка группы" />
+                    <img src="/img/Group 2.png" alt="Иконка группы" />
                   </button>
                   <ul
                     className="dropdown-menu"
@@ -79,7 +79,7 @@ export default function Header() {
                     <>
                       <div className="mx-1 text-center">
                         <Link to={"/profile"} className="text-decoration-none">
-                          <img className="header__image__size" src="img/user.png" alt="Иконка пользователя" />
+                          <img className="header__image__size" src="/img/user.png" alt="Иконка пользователя" />
                           <p className="header__button__text">Профиль</p>
                         </Link>
                       </div>
@@ -93,13 +93,13 @@ export default function Header() {
                             window.location.href = "/";
                           }}
                         >
-                          <img className="header__image__size header__image-logout" src="img/logout.png" alt="Выход" />
+                          <img className="header__image__size header__image-logout" src="/img/logout.png" alt="Выход" />
                           <p className="header__button__text">Выйти</p>
                         </Link>
                       </div>
                       <div className="mx-1 text-center">
                         <Link to={"/like"} className="text-decoration-none">
-                          <img className="header__image__size" src="img/heart.png" alt="Иконка сердца" />
+                          <img className="header__image__size" src="/img/heart.png" alt="Иконка сердца" />
                           <p className="header__button__text">Избранное</p>
                         </Link>
                       </div>
@@ -107,7 +107,7 @@ export default function Header() {
                   ) : (
                     <div className="mx-1 text-center">
                       <Link to={"/login"} className="text-decoration-none">
-                        <img className="header__image__size" src="img/user.png" alt="Войти" />
+                        <img className="header__image__size" src="/img/user.png" alt="Войти" />
                         <p className="header__button__text">Войти</p>
                       </Link>
                     </div>
@@ -117,7 +117,7 @@ export default function Header() {
                     <a href="college.html">
                       <img
                       className="header__image__size"
-                        src="img/material-symbols_info-outline-rounded1.png"
+                        src="/img/material-symbols_info-outline-rounded1.png"
                         alt="Информация"
                       />
                     </a>
