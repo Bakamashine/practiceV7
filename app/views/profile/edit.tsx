@@ -1,7 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { useParams } from "react-router";
+import { useEffect, useState, useRef, type FormEvent, type ChangeEvent } from "react";
 import type { UserData } from "~/api/auth";
-import product, { type ProductResponse } from "~/api/product";
 import user from "~/api/user";
 import Loader from "~/components/Loader";
 import default_image_url from "~/constants/image";
@@ -15,6 +13,21 @@ export default function EditProfile() {
   const [name, setName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [userInfo, setUserInfo] = useState("");
+  const [image, setImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImage(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
 
   const getData = async () => {
     try {
@@ -40,19 +53,27 @@ export default function EditProfile() {
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log("submitted");
+    const result = await user.updateUserInfo({
+      Fullname: name,
+      PhoneNumber: phoneNumber,
+      UserInfo: userInfo,
+      Avatar: image || undefined
+    })
   };
   if (load) return <Loader />;
 
   return (
     <section className="catalog profile">
-      <form className="m-3" onSubmit={submit}>
+      <form className="m-3" onSubmit={submit} encType="multipart/form-data">
         <div className="d-flex align-items-center justify-content-between">
+        <label onClick={() => fileInputRef.current?.click()}>
           <img
-            src={myuser?.avatar || default_image_url}
+            src={previewUrl || myuser?.avatarUrl || default_image_url}
             className="avatar"
-            alt="..."
+            alt="avatar"
           />
+          </label>
+          <input type="file" ref={fileInputRef} style={{ display: "none" }} id="pick-image" accept="image/*" onChange={handleImageChange} />
           <div className="mx-3" style={{ flex: 1 }}>
             <h5>
               <b>Фио: </b>

@@ -80,8 +80,9 @@ export default class BaseApi {
     axiosInstance: AxiosInstance,
     url: string,
     payload?: object,
+    extraConfig?: AxiosRequestConfig,
   ): Promise<ApiResponse<T>> {
-    return this.request<T>(axiosInstance, url, payload, "put");
+    return this.request<T>(axiosInstance, url, payload, "put", extraConfig);
   }
 
   protected async patch<T = any>(

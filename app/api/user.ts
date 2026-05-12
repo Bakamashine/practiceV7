@@ -1,7 +1,13 @@
 import authAxios from "~/config/authAxios";
 import BaseApi from "./base_api";
 import type { UserData } from "./auth";
-// import { userInfo } from "os";
+
+export interface UserUpdate {
+  Fullname: string;
+  PhoneNumber: string;
+  UserInfo: string;
+  Avatar?: File;
+}
 
 class User extends BaseApi {
   async getFullInfo() {
@@ -10,8 +16,19 @@ class User extends BaseApi {
     return result;
   }
 
-  async updateUserInfo(user: UserData) {
-    // const result = await this.post
+  async updateUserInfo(user: UserUpdate) {
+    const formData = new FormData();
+    formData.append("Fullname", user.Fullname);
+    formData.append("PhoneNumber", user.PhoneNumber);
+    formData.append("UserInfo", user.UserInfo);
+    if (user.Avatar) {
+      formData.append("Avatar", user.Avatar);
+    }
+
+    const result = await this.put(authAxios, "/user/current", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    console.log("Update user: ", result);
   }
 }
 

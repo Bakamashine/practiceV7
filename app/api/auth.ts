@@ -22,7 +22,7 @@ export interface UserData extends AuthResponse {
   phoneNumber: string;
   role: string;
   userInfo?: string;
-  avatar?: string;
+  avatarUrl?: string;
 }
 
 const phoneKey =

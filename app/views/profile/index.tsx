@@ -50,7 +50,7 @@ const ProfileView = () => {
 
         <div className="d-flex align-items-center justify-content-between">
           <img
-            src={currentUser?.avatar || default_image_url}
+            src={currentUser?.avatarUrl || default_image_url}
             className="avatar"
             alt="..."
           />
