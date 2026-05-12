@@ -33,8 +33,9 @@ class Product extends BaseApi {
         return response.data;
     }
 
-    async getWithPaginate(currentPage: number =1) {
-        const response = await this.get<ProductResponseWithPagination>(guestAxios, `/Product/pag/all?pageSize=5&page=${currentPage}`);
+    async getWithPaginate(currentPage: number = 1) {
+        const params = new URLSearchParams({ pageSize: "5", page: String(currentPage) });
+        const response = await this.get<ProductResponseWithPagination>(guestAxios, `/Product/pag/all?${params}`);
         console.log("Product getWithPaginate: ", response)
         return response.data;
     }
@@ -48,6 +49,12 @@ class Product extends BaseApi {
     async postLike(id: string) {
         
     }
+
+    async getBySearchTextWithPaginate(searchText: string, page:string) {
+        const params = new URLSearchParams({ searchText, pageSize: "5", page: page });
+        const result = await this.get<ProductResponseWithPagination>(guestAxios, `Product/pag/all?${params}`);
+        return result.data
+    }
 }
 
-export default new Product
+export default new Product()

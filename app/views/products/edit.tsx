@@ -2,18 +2,18 @@ import { useState, useRef, type ChangeEvent } from "react";
 import product from "~/api/product";
 import type { Route } from "./+types/edit";
 
-
-
-export async function loader({params}: Route.LoaderArgs) {
-    const myproduct = await product.getById(params.id);
-    return myproduct;
+export async function loader({ params }: Route.LoaderArgs) {
+  const myproduct = await product.getById(params.id);
+  return myproduct;
 }
-const EditProduct = ({loaderData}: Route.ComponentProps) => {
+const EditProduct = ({ loaderData }: Route.ComponentProps) => {
   const [name, setName] = useState<string>(loaderData!.productName);
   // const [phone, setPhone] = useState<string>(loaderData!.);
   const [address, setAddress] = useState<string>(loaderData!.address);
   const [type, setType] = useState<string>(loaderData!.ypkId);
-  const [description, setDescription] = useState<string>(loaderData!.productInfo);
+  const [description, setDescription] = useState<string>(
+    loaderData!.productInfo,
+  );
   const [offerType, setOfferType] = useState<string>("product");
   const [image, setImage] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,7 +47,11 @@ const EditProduct = ({loaderData}: Route.ComponentProps) => {
               <form>
                 <div
                   className="m-3 newFoto rounded-5 bg-secondary d-flex justify-content-center align-items-center"
-                  style={{ overflow: "hidden", aspectRatio: "1 / 1", cursor: "pointer" }}
+                  style={{
+                    overflow: "hidden",
+                    aspectRatio: "1 / 1",
+                    cursor: "pointer",
+                  }}
                   onClick={handleImageClick}
                 >
                   <img

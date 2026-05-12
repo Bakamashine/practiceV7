@@ -19,10 +19,11 @@ export interface OrderResponseWithPagination extends IPaginate {
 }
 
 class Order extends BaseApi {
-  async getWithPaginate(currentPage: number=1) {
+  async getWithPaginate(currentPage: number = 1) {
+    const params = new URLSearchParams({ pageSize: "5", page: String(currentPage) });
     const response = await this.get<OrderResponseWithPagination>(
       guestAxios,
-      `order/pag/all?pageSize=5&page=${currentPage}`,
+      `order/pag/all?${params}`,
     );
     console.log("Order getAll: ", response.data);
     return response.data;
