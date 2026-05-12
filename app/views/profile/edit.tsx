@@ -1,7 +1,15 @@
-import { useEffect, useState, useRef, type FormEvent, type ChangeEvent } from "react";
+import {
+  useEffect,
+  useState,
+  useRef,
+  type FormEvent,
+  type ChangeEvent,
+} from "react";
+import { useNavigate } from "react-router";
 import type { UserData } from "~/api/auth";
-import user from "~/api/user";
+import user, { type UserUpdateValidate } from "~/api/user";
 import Loader from "~/components/Loader";
+import ShowError from "~/components/showError";
 import default_image_url from "~/constants/image";
 
 export async function loader() {
@@ -16,6 +24,8 @@ export default function EditProfile() {
   const [image, setImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigation = useNavigate();
+  const [error, setError] = useState<UserUpdateValidate | null>(null);
 
   const handleImageClick = () => {
     fileInputRef.current?.click();
@@ -57,8 +67,14 @@ export default function EditProfile() {
       Fullname: name,
       PhoneNumber: phoneNumber,
       UserInfo: userInfo,
-      Avatar: image || undefined
-    })
+      Avatar: image || undefined,
+    });
+    if (result.status == 204) {
+      navigation("/profile");
+      return;
+    }
+
+    setError(result.error as unknown as UserUpdateValidate);
   };
   if (load) return <Loader />;
 
@@ -66,14 +82,21 @@ export default function EditProfile() {
     <section className="catalog profile">
       <form className="m-3" onSubmit={submit} encType="multipart/form-data">
         <div className="d-flex align-items-center justify-content-between">
-        <label onClick={() => fileInputRef.current?.click()}>
-          <img
-            src={previewUrl || myuser?.avatarUrl || default_image_url}
-            className="avatar"
-            alt="avatar"
-          />
+          <label onClick={() => fileInputRef.current?.click()}>
+            <img
+              src={previewUrl || myuser?.avatarUrl || default_image_url}
+              className="avatar"
+              alt="avatar"
+            />
           </label>
-          <input type="file" ref={fileInputRef} style={{ display: "none" }} id="pick-image" accept="image/*" onChange={handleImageChange} />
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            id="pick-image"
+            accept="image/*"
+            onChange={handleImageChange}
+          />
           <div className="mx-3" style={{ flex: 1 }}>
             <h5>
               <b>Фио: </b>
@@ -86,6 +109,8 @@ export default function EditProfile() {
                 onChange={(e) => setName(e.target.value)}
               />
             </h5>
+            <ShowError errorKey="Fullname" error={error} />
+
             <hr style={{ width: "100%", margin: 0 }} />
             <p>
               <b>Номер телефона: </b>
@@ -99,7 +124,9 @@ export default function EditProfile() {
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
               />
+              <ShowError errorKey="PhoneNumber" error={error} />
             </p>
+
             <hr style={{ width: "100%", margin: 0 }} />
             <p>
               <b>Доп информация: </b>

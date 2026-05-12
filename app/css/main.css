@@ -269,7 +269,7 @@ a {
 }
 @media (max-width: 990px) {
   .avatar {
-    max-width: 45%;
+    /* max-width: 45%; */
   }
   .profile button img {
     max-width: 20%;
@@ -281,7 +281,7 @@ a {
 }
 @media (max-width: 990px) {
   .avatar {
-    max-width: 30%;
+    /* max-width: 30%; */
   }
   .redactInfoButton img {
     width: 10px;

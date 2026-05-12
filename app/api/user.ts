@@ -1,12 +1,20 @@
 import authAxios from "~/config/authAxios";
 import BaseApi from "./base_api";
 import type { UserData } from "./auth";
+import type IBaseValidation from "~/interface/IBaseValidation";
 
 export interface UserUpdate {
   Fullname: string;
   PhoneNumber: string;
   UserInfo: string;
   Avatar?: File;
+}
+
+export interface UserUpdateValidate extends IBaseValidation {
+  errors: {
+    Fullname?: string[];
+    PhoneNumber?: string[];
+  };
 }
 
 class User extends BaseApi {
@@ -29,6 +37,7 @@ class User extends BaseApi {
       headers: { "Content-Type": "multipart/form-data" },
     });
     console.log("Update user: ", result);
+    return result;
   }
 }
 

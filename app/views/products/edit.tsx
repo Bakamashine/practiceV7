@@ -1,21 +1,41 @@
-import { useState, useRef, type ChangeEvent } from "react";
-import product from "~/api/product";
+import { useState, useRef, type ChangeEvent, type FormEvent } from "react";
+import product, { type ProductUpdateValidation } from "~/api/product";
 import type { Route } from "./+types/edit";
+import default_image_url from "~/constants/image";
+import ypk from "~/api/ypk";
+import status_product from "~/api/status_product";
+import { useNavigate } from "react-router";
+import ShowError from "~/components/showError";
 
-export async function loader({ params }: Route.LoaderArgs) {
+export async function clientLoader({ params }: Route.LoaderArgs) {
   const myproduct = await product.getById(params.id);
-  return myproduct;
+  const ypks = await ypk.getAll();
+  const _status = await status_product.getAll();
+  return { myproduct, ypks, _status };
+  // return myproduct;
 }
 const EditProduct = ({ loaderData }: Route.ComponentProps) => {
-  const [name, setName] = useState<string>(loaderData!.productName);
+  // const myproduct = loaderData!.myproduct;
+
+  // const ypk = loaderData!.ypk;
+  const { myproduct, ypks, _status } = loaderData;
+  const [name, setName] = useState<string>(myproduct!.productName);
   // const [phone, setPhone] = useState<string>(loaderData!.);
-  const [address, setAddress] = useState<string>(loaderData!.address);
-  const [type, setType] = useState<string>(loaderData!.ypkId);
+  const [address, setAddress] = useState<string>(myproduct!.address);
+  const [type, setType] = useState<string>(myproduct!.ypkId);
   const [description, setDescription] = useState<string>(
-    loaderData!.productInfo,
+    myproduct!.productInfo,
   );
-  const [offerType, setOfferType] = useState<string>("product");
+  // const [offerType, setOfferType] = useState<string>("product");
   const [image, setImage] = useState<File | null>(null);
+  const [status, setStatus] = useState<string>(myproduct!.statusProductId);
+  const [isProduct, setIsProduct] = useState(myproduct!.isProduct);
+  const [cost, setCost] = useState(String(myproduct!.productCost));
+  const navigation = useNavigate();
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+
+  const [error, setError] = useState<ProductUpdateValidation | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageClick = () => {
@@ -24,18 +44,41 @@ const EditProduct = ({ loaderData }: Route.ComponentProps) => {
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setImage(e.target.files[0]);
+      const file = e.target.files[0];
+      setImage(file);
+      setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
-  const handleSubmit = () => {
-    // console.log({ name, phone, address, type, description, offerType, image });
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const result = await product.updateProduct({
+      address,
+      id: myproduct!.id,
+      isProduct,
+      photo: image,
+      productCost: parseInt(cost),
+      productInfo: description,
+      productName: name,
+      statusProductId: status,
+      ypkId: type,
+    });
+
+    if (result.status == 204) {
+      // navigation("/product/edit_page");
+      return;
+    }
+    setError(result.error as unknown as ProductUpdateValidation);
   };
 
   return (
     <section className="mx-4">
       <a href="userProfile.html">
-        <img src="img/arrow-left.png" alt="Назад" className="my-2 myImgArrow" />
+        <img
+          src="/img/arrow-left.png"
+          alt="Назад"
+          className="my-2 myImgArrow"
+        />
       </a>
       <div className="text-center">
         <h1>Редактировать</h1>
@@ -44,7 +87,7 @@ const EditProduct = ({ loaderData }: Route.ComponentProps) => {
         <div className="mb-3">
           <div className="newTovar">
             <div className="card-body text-center">
-              <form>
+              <form onSubmit={handleSubmit} encType="multipart/form-data">
                 <div
                   className="m-3 newFoto rounded-5 bg-secondary d-flex justify-content-center align-items-center"
                   style={{
@@ -56,7 +99,8 @@ const EditProduct = ({ loaderData }: Route.ComponentProps) => {
                 >
                   <img
                     src={
-                      image ? URL.createObjectURL(image) : "img/Group 19.png"
+                      // image ? URL.createObjectURL(image) :
+                      previewUrl || myproduct?.photoUrl || default_image_url
                     }
                     style={{
                       width: "100%",
@@ -87,16 +131,6 @@ const EditProduct = ({ loaderData }: Route.ComponentProps) => {
                     />
                   </div>
 
-                  {/* <div className="mb-3">
-                    <input
-                      type="tel"
-                      placeholder="Номер телефона для связи"
-                      className="border-0 rounded-4 backColorGre1 w-100 px-3"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                    />
-                  </div> */}
-
                   <div className="mb-3">
                     <input
                       type="text"
@@ -114,10 +148,29 @@ const EditProduct = ({ loaderData }: Route.ComponentProps) => {
                       onChange={(e) => setType(e.target.value)}
                     >
                       <option value="">Тип: выпадающий список</option>
-                      <option value="тип1">Тип 1</option>
-                      <option value="тип2">Тип 2</option>
-                      <option value="тип3">Тип 3</option>
+                      {ypks?.ypks.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.ypkName}
+                        </option>
+                      ))}
                     </select>
+                    <ShowError errorKey="YpkId" error={error} />
+                  </div>
+
+                  <div className="mb-3">
+                    <select
+                      className="border-0 rounded-4 backColorGre1 w-100 px-3 text-muted"
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                    >
+                      <option value="">Тип: выпадающий список</option>
+                      {_status?.statusProducts.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.statusName}
+                        </option>
+                      ))}
+                    </select>
+                    <ShowError errorKey="StatusProductId" error={error} />
                   </div>
 
                   <div className="mb-3">
@@ -130,16 +183,25 @@ const EditProduct = ({ loaderData }: Route.ComponentProps) => {
                     />
                   </div>
 
+                  <div className="mb-3">
+                    <input
+                      type="number"
+                      placeholder="Цена"
+                      className="border-0 rounded-4 backColorGre1 w-100 px-3"
+                      value={cost}
+                      onChange={(e) => setCost(e.target.value)}
+                    />
+                    <ShowError errorKey="Cost" error={error} />
+                  </div>
                   <div className="mb-4 d-flex justify-content-around gap-4">
                     <div className="form-check">
                       <input
                         className="form-check-input"
                         type="radio"
-                        name="offerType"
                         id="service"
                         value="service"
-                        checked={offerType === "service"}
-                        onChange={() => setOfferType("service")}
+                        checked={isProduct === false}
+                        onChange={() => setIsProduct(false)}
                       />
                       <label
                         className="form-check-label text-muted"
@@ -152,11 +214,10 @@ const EditProduct = ({ loaderData }: Route.ComponentProps) => {
                       <input
                         className="form-check-input"
                         type="radio"
-                        name="offerType"
                         id="product"
                         value="product"
-                        checked={offerType === "product"}
-                        onChange={() => setOfferType("product")}
+                        checked={isProduct === true}
+                        onChange={() => setIsProduct(true)}
                       />
                       <label
                         className="form-check-label text-muted"
@@ -169,8 +230,8 @@ const EditProduct = ({ loaderData }: Route.ComponentProps) => {
                 </div>
 
                 <button
+                  type="submit"
                   className="w-50 myButton rounded-4 myBlue text-white p-2"
-                  onClick={handleSubmit}
                 >
                   Сохранить
                 </button>
