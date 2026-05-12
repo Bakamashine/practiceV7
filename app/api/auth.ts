@@ -3,6 +3,7 @@ import guestAxios from "../config/guestAxios";
 import BaseApi, { type ApiResponse } from "./base_api";
 import type { AxiosRequestConfig } from "axios";
 import { redirect } from "react-router";
+import authAxios from "~/config/authAxios";
 // import type IUser from "../interface/IUser";
 
 export interface UserLogin {
@@ -111,6 +112,11 @@ class Auth extends BaseApi {
 
   async refreshToken(): Promise<ApiResponse<AuthResponse>> {
     return this.post<AuthResponse>(guestAxios, "Auth/loginViaToken", {});
+  }
+
+  async logout() {
+    const result = await this.post(authAxios, "auth/logout")
+    // window.cookieStore.
   }
 }
 

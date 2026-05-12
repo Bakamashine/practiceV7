@@ -8,7 +8,6 @@ import {
   useLoaderData,
 } from "react-router";
 
-
 import type { Route } from "./+types/root";
 import Header from "./layouts/components/header";
 import Footer from "./layouts/components/footer";
@@ -48,6 +47,7 @@ export default function App() {
   const [isAuth, setAuth] = useState<boolean>(false);
   const [user, setUser] = useState<UserData | null>(null);
   const [load, setLoad] = useState(true);
+  // const [coldown, setColDown] = useState();
 
   const getUser = async () => {
     try {
@@ -68,6 +68,16 @@ export default function App() {
     getUser();
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const result = await auth.refreshToken();
+      if (result.status !== 200) {
+        setAuth(false);
+        setUser(null);
+      }
+    }, 4 * 60 * 1000);
+    return () => clearInterval(interval);
+  });
   if (load) {
     return <Loader />;
   }
