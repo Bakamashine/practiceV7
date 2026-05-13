@@ -1,87 +1,91 @@
-# Welcome to React Router!
+# PracticeV7 - E-Commerce платформа
 
-A modern, production-ready template for building full-stack React applications using React Router.
+Веб-приложение для управления товарами, заказами и пользователями, построенное на базе React Router v7.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+## Стек технологий
 
-## Features
+- React Router v7 - маршрутизация и серверный рендеринг
+- TypeScript - строгая типизация
+- Vite - быстрая сборка и HMR
+- Docker - контейнеризация
+- Bootstrap - стилизация интерфейса
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+## Функциональность
 
-## Getting Started
+### Аутентификация
+- Регистрация и авторизация пользователей
+- JWT-токены через cookies
+- Защищённые маршруты
+- Контекст авторизации и пользователя
 
-### Installation
+### Каталог товаров
+- Отображение списка товаров
+- Создание, редактирование и удаление товаров
+- Детальная страница товара
+- Система лайков
 
-Install the dependencies:
+### Заказы
+- Оформление заказов
+- Управление заказами
+
+### Профиль
+- Редактирование профиля
+- История заказов
+
+## Структура проекта
+
+```
+app/
+├── api/              # API-клиенты
+├── components/       # Переиспользуемые компоненты
+├── config/           # Конфигурация axios
+├── constants/        # Константы приложения
+├── context/          # React Context (Auth, User)
+├── helper/           # Вспомогательные функции
+├── hooks/            # Кастомные хуки
+├── interface/        # TypeScript-интерфейсы
+├── layouts/          # Шаблоны страниц
+├── middleware/       # Защита маршрутов
+├── views/            # Страницы приложения
+│   ├── auth/
+│   ├── products/
+│   └── profile/
+└── routes.ts         # Определение маршрутов
+```
+
+## Начало работы
+
+### Установка
 
 ```bash
 npm install
 ```
 
-### Development
-
-Start the development server with HMR:
+### Разработка
 
 ```bash
 npm run dev
 ```
 
-Your application will be available at `http://localhost:5173`.
+Приложение доступно по адресу `http://localhost:5173`.
 
-## Building for Production
-
-Create a production build:
+### Продакшен-сборка
 
 ```bash
 npm run build
 ```
 
-## Deployment
-
-### Docker Deployment
-
-To build and run using Docker:
+### Docker
 
 ```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
+docker build -t practicev7 .
+docker run -p 3000:3000 practicev7
 ```
 
-The containerized application can be deployed to any platform that supports Docker, including:
+## API Endpoints
 
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
-
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
-```
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
-
----
-
-Built with ❤️ using React Router.
+- `/api/auth/*` - аутентификация
+- `/api/products/*` - товары
+- `/api/orders/*` - заказы
+- `/api/users/*` - пользователи
+- `/api/status_product/*` - статусы товаров
