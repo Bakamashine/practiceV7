@@ -112,7 +112,7 @@ a {
   }
   .like {
     width: 40px;
-    height: avto;
+    height: auto;
   }
 }
 
@@ -134,7 +134,7 @@ a {
   }
   .like {
     width: 30px;
-    height: avto;
+    height: auto;
   }
   .mobile-bottom-nav a {
     font-size: 0.5rem;
@@ -167,7 +167,7 @@ a {
   }
   .like {
     width: 20px;
-    height: avto;
+    height: auto;
   }
   footer {
     padding-bottom: 15%;
@@ -215,7 +215,7 @@ a {
   }
   .catalog button {
     font-size: 0.4rem;
-    max-width: avto;
+    max-width: auto;
   }
   .catalog input {
     font-size: 0.8rem;
@@ -231,7 +231,7 @@ a {
 @media (max-width: 576px) {
   footer img {
     width: 40%;
-    height: avto;
+    height: auto;
   }
 }
 
@@ -252,7 +252,7 @@ a {
 @media (max-width: 576px) {
   .myImgArrow {
     width: 10%;
-    height: avto;
+    height: auto;
   }
 }
 
@@ -295,12 +295,13 @@ a {
 }
 .edit {
   background-color: rgba(60, 47, 47, 1);
-  border: 0cap;
+  border: 0;
   border-radius: 0.4rem;
 }
 
 /* создание продукта */
 .addProduct {
+  /* styles for add product page */
 }
 
 .cursor-pointer {
@@ -356,13 +357,12 @@ a {
 }
 
 .object-fit {
-  object-fit: 1;
+  object-fit: cover;
 }
 
 .header__button__text {
   color: white;
   text-decoration: none;
-  bottom: none;
 }
 
 .flexCenter {

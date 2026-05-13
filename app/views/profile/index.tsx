@@ -93,7 +93,7 @@ const ProfileView = () => {
               {/* ======================= Исполнитель кнопки======================= */}
               <Link
                 // href="addProduct.html"
-                to={"#"}
+                to={"/product/create"}
                 className="text-decoration-none flex-grow-1 flex-md-grow-0"
               >
                 <button

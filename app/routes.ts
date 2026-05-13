@@ -12,6 +12,7 @@ export default [
   route("product/:id/edit", "./views/products/edit.tsx"),
   route("product/edit_page", "./views/products/edit_page.tsx"),
   route("buy_page", "./views/products/buy_page.tsx"),
+  route("product/create", "./views/products/create.tsx"),
 
   // Auth
   route("login", "./views/auth/login.tsx"),

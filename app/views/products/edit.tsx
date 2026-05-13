@@ -12,21 +12,15 @@ export async function clientLoader({ params }: Route.LoaderArgs) {
   const ypks = await ypk.getAll();
   const _status = await status_product.getAll();
   return { myproduct, ypks, _status };
-  // return myproduct;
 }
 const EditProduct = ({ loaderData }: Route.ComponentProps) => {
-  // const myproduct = loaderData!.myproduct;
-
-  // const ypk = loaderData!.ypk;
   const { myproduct, ypks, _status } = loaderData;
   const [name, setName] = useState<string>(myproduct!.productName);
-  // const [phone, setPhone] = useState<string>(loaderData!.);
   const [address, setAddress] = useState<string>(myproduct!.address);
   const [type, setType] = useState<string>(myproduct!.ypkId);
   const [description, setDescription] = useState<string>(
     myproduct!.productInfo,
   );
-  // const [offerType, setOfferType] = useState<string>("product");
   const [image, setImage] = useState<File | null>(null);
   const [status, setStatus] = useState<string>(myproduct!.statusProductId);
   const [isProduct, setIsProduct] = useState(myproduct!.isProduct);
@@ -65,7 +59,7 @@ const EditProduct = ({ loaderData }: Route.ComponentProps) => {
     });
 
     if (result.status == 204) {
-      // navigation("/product/edit_page");
+      navigation("/product/edit_page");
       return;
     }
     setError(result.error as unknown as ProductUpdateValidation);

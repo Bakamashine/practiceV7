@@ -29,20 +29,30 @@ export interface ProductUpdate {
   statusProductId: string;
 }
 
-
 export interface ProductUpdateValidation extends IBaseValidation {
   errors: {
-    YpkId?: string[],
-    Address?: string[],
-    IsProduct?: string[],
-    ProductCost?: string[],
-    ProductInfo?: string[],
-    ProductName?: string[],
-    StatusProductId?: string[]
-  }
+    YpkId?: string[];
+    Address?: string[];
+    IsProduct?: string[];
+    ProductCost?: string[];
+    ProductInfo?: string[];
+    ProductName?: string[];
+    StatusProductId?: string[];
+  };
 }
 export interface ProductResponseAny {
   products: ProductResponse[];
+}
+
+export interface ProductCreate {
+  ProductName: string;
+  ProductInfo: string;
+  ProductCost: number;
+  IsProduct: boolean;
+  Address: string;
+  Photo: File | null;
+  YpkId: string;
+  StatusProductId: string;
 }
 
 export interface ProductResponseWithPagination extends IPaginate {
@@ -114,9 +124,33 @@ class Product extends BaseApi {
       headers: { "Content-Type": "multipart/form-data" },
     });
 
-    console.log("Update product: ", result)
+    console.log("Update product: ", result);
     return result;
-    // return formData;
+  }
+
+  async create(product: ProductCreate) {
+    const formData = new FormData();
+    formData.append("YpkId", product.YpkId);
+    formData.append("ProductName", product.ProductName);
+    formData.append("ProductCost", String(product.ProductCost));
+    formData.append("ProductInfo", product.ProductInfo);
+    formData.append("IsProduct", String(product.IsProduct));
+    if (product.Photo) formData.append("Photo", product.Photo);
+    formData.append("address", product.Address);
+    formData.append("statusProductId", product.StatusProductId);
+
+    const result = await this.post(authAxios, "/product", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    console.log("Create product: ", result);
+    return result;
+  }
+
+  async destroy(idProduct: string) {
+    const result = await this.delete(authAxios, `product/${idProduct}`);
+    console.log("Destroy product: ", result)
+    return result
   }
 }
 

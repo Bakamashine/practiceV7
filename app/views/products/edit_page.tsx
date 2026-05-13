@@ -3,9 +3,10 @@ import type { Route } from "./+types/edit_page";
 import default_image_url from "~/constants/image";
 import AdaptivePaginator from "~/components/AdaptivePaginator";
 import { useEffect, useState, useCallback } from "react";
-import {  useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import Loader from "~/components/Loader";
 import { Link } from "react-router";
+import SubmitModalWindow from "~/components/SubmitModalWindow";
 
 export async function clientLoader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
@@ -19,6 +20,8 @@ export default function EditProductPage({ loaderData }: Route.ComponentProps) {
   const [searchText, setSearchText] = useState("");
   const [searchParams] = useSearchParams();
   const [load, setLoad] = useState(true);
+  const [show, setShow] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   const hasSearch = searchText.trim() !== "";
 
@@ -42,6 +45,20 @@ export default function EditProductPage({ loaderData }: Route.ComponentProps) {
     }
   }, [searchText, hasSearch, searchParams]);
 
+  const destroyProduct = async (idProduct: string) => {
+    const result = await product.destroy(idProduct);
+    if (result.status == 204) {
+      setShow(false);
+      setSelectedProductId(null);
+      fetchProducts();
+    }
+  };
+
+  const handleDeleteClick = (idProduct: string) => {
+    setSelectedProductId(idProduct);
+    setShow(true);
+  };
+
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchProducts();
@@ -55,16 +72,23 @@ export default function EditProductPage({ loaderData }: Route.ComponentProps) {
     }
   }, [loaderData]);
 
-
   if (load) {
-    return <Loader />
+    return <Loader />;
   }
   return (
     <>
+      <SubmitModalWindow
+        show={show}
+        handleClose={() => {
+          setShow(false);
+          setSelectedProductId(null);
+        }}
+        success={() => selectedProductId && destroyProduct(selectedProductId)}
+      />
       <div className="mx-5">
-        <a href="userProfile.html">
+        <a href="/">
           <img
-            src="img/arrow-left.png"
+            src="/img/arrow-left.png"
             alt="Назад"
             className="my-2 myImgArrow"
           />
@@ -99,36 +123,26 @@ export default function EditProductPage({ loaderData }: Route.ComponentProps) {
                       />
                       <div className="card-body catalog">
                         <h3 className="card-title">{item.productName}</h3>
-                        <h5>{item.ypkId}</h5>
-                        <h4>{item.productCost}</h4>
-                        <p>{item.productInfo}</p>
+                        <h5>Тип: {item.isProduct ? "Продукт" : "Услуга"}</h5>
+                        {/* <h5>{item.ypkId}</h5> */}
+                        <h4>Цена: {item.productCost} Р</h4>
+                        <p>Описание: {item.productInfo.slice(0,10).concat("...")}</p>
 
-                        
-                          <Link
-                            to={`/product/${item.id}/edit`}
-                            type="button"
-                            className="my-3 sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100 text-decoration-none"
-                            // onClick={() => navigation()}
-                          >
-                            <span>Редактировать</span>
-                          </Link>
-                     
-                        <a href="hide.html" className="text-decoration-none">
-                          <button
-                            type="button"
-                            className="my-3 sign-out d-flex bg-danger-subtle border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
-                          >
-                            <span>Скрыть</span>
-                          </button>
-                        </a>
-                        <a href="return.html" className="text-decoration-none">
-                          <button
-                            type="button"
-                            className="my-3 sign-out d-flex bg-success-subtle border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
-                          >
-                            <span>Вернуть</span>
-                          </button>
-                        </a>
+                        <Link
+                          to={`/product/${item.id}/edit`}
+                          type="button"
+                          className="my-3 sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100 text-decoration-none"
+                        >
+                          <span>Редактировать</span>
+                        </Link>
+
+                        <button
+                          type="button"
+                          className="my-3 sign-out d-flex bg-danger border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
+                          onClick={() => handleDeleteClick(item.id)}
+                        >
+                          <span>Удалить</span>
+                        </button>
                       </div>
                     </div>
                   </div>
