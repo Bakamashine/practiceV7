@@ -24,6 +24,10 @@ export default [
   route("like", "./views/profile/like.tsx"),
   route("/profile/edit", './views/profile/edit.tsx'),
 
-  route("comments", "./views/comments/index.tsx"),
+
+  // feedback
+  // route("comments", "./views/comments/index.tsx"),
+  route("feedback", "./views/feedback/index.tsx"),
+  route("feedback/create", "./views/feedback/create.tsx"),
   route("*", "./views/notFound.tsx"),
 ] satisfies RouteConfig;

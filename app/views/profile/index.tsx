@@ -144,7 +144,7 @@ const ProfileView = () => {
               )}
 
               <Link
-                to="#"
+                to={"/feedback/create"}
                 className="text-decoration-none flex-grow-1 flex-md-grow-0"
               >
                 <button

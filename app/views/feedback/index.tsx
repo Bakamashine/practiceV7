@@ -1,4 +1,4 @@
-import type { Route } from "./+types/index";
+import type { Route } from "./+types/create";
 import { protectedMiddleware } from "~/middleware/protectedMiddleware";
 
 export const middleware: Route.MiddlewareFunction[] = [protectedMiddleware];
