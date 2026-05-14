@@ -1,3 +1,3 @@
-const backend_url = "https://localhost:7067/api"
+const backend_url = "http://btpit-ypk-api.somee.com/api"
 
 export default backend_url
