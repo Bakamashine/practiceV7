@@ -16,6 +16,11 @@ class Ypk extends BaseApi {
   async getAll() {
     return (await this.get<YpkResponse>(guestAxios, "Ypk/all")).data;
   }
+  async destroy(idYpk:string) {
+    const result = await this.delete(authAxios, `ypk/${idYpk}`)
+    console.log("Delete ypk: ", result)
+    return result;
+  }
 }
 
 export default new Ypk();

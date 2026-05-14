@@ -8,6 +8,9 @@ import user from "~/api/user";
 import type { UserData } from "~/api/auth";
 import Loader from "~/components/Loader";
 import { protectedMiddleware } from "~/middleware/protectedMiddleware";
+import NewTypeForm from "~/components/forms/newTypeForm";
+import DeleteTypeForm from "~/components/forms/deleteTypeForm";
+import ypk, { type YpkResponse } from "~/api/ypk";
 
 export const middleware: Route.MiddlewareFunction[] = [protectedMiddleware];
 
@@ -17,23 +20,41 @@ export const middleware: Route.MiddlewareFunction[] = [protectedMiddleware];
 //   // return null;
 // }
 
-export async function loader() {
-  return null;
-}
+// export async function clientLoader() {
+//   const ypks = await ypk.getAll();
+//   return ypks
+// }
 
 const ProfileView = () => {
+  const [ypks, setYpk] = useState<YpkResponse | null>();
   const [currentUser, setUser] = useState<UserData | undefined>(undefined);
-  const {user: myUser} = useContext(UserContext)
+  const { user: myUser } = useContext(UserContext);
   const [load, setLoad] = useState(true);
+  const [selectType, setSelectType] = useState();
   const navigation = useNavigate();
+
+  const getUser = async () => {
+    const newUser = await user.getFullInfo();
+    if (newUser.data) setUser(newUser.data);
+  };
+  const getYpk = async () => {
+    const ypks = await ypk.getAll();
+    if (ypks) setYpk(ypks);
+  };
   const getData = async () => {
     try {
-      const newUser = await user.getFullInfo();
-      if (newUser.data) setUser(newUser.data);
+      getUser();
+      getYpk();
     } catch (e) {
       console.log(e);
     } finally {
       setLoad(false);
+    }
+  };
+  const removeType = async (ypkId: string) => {
+    const result =await ypk.destroy(ypkId);
+    if (result.status == 204) {
+      getYpk()
     }
   };
   useEffect(() => {
@@ -160,7 +181,7 @@ const ProfileView = () => {
                 type="button"
                 className="sign-out d-flex btn btn-outline-danger justify-content-center align-items-center gap-2 w-100 w-md-auto"
               >
-                <span>выйти из аккаунта</span>
+                <span>Выйти из аккаунта</span>
                 <img
                   src="img/sign-out.png"
                   alt=""
@@ -324,60 +345,16 @@ const ProfileView = () => {
           </div>
         </div>
       </section>
-      {/* ======================= ШТУКИ АДМИНА!!!!!!!!!!!!!!!!  ======================= */}
-      <section>
-        <div className="myBlue rounded-3">
-          <h1 className="p-3 text-white nameBlock">
-            Добавить новый тип услуг/продуктов
-          </h1>
-        </div>
-        <div className="d-flex gap-2 mb-3">
-          <div className="w-75">
-            <input
-              type="text"
-              placeholder="Введите новый тип услуги или продукта"
-              className="border-0 rounded-4 backColorGre1 p-3 w-100"
-              style={{ height: "100%" }}
-            />
-          </div>
-          <div className="w-25">
-            <button
-              type="button"
-              className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100 h-100"
-            >
-              <span>Добавить</span>
-            </button>
-          </div>
-        </div>
-      </section>
-      <section>
-        <div className="myBlue rounded-3">
-          <h1 className="p-3 text-white nameBlock">
-            Удалить тип услуг/продуктов
-          </h1>
-        </div>
-        <div className="d-flex gap-2 mb-3">
-          <div className="w-75">
-            <select
-              className="border-0 rounded-4 backColorGre1 p-3 w-100 text-muted"
-              style={{ height: "100%" }}
-            >
-              <option value="" disabled>
-                Выберите тип услуги или продукта
-              </option>
-              <option value="консультация">ааааааа</option>
-            </select>
-          </div>
-          <div className="w-25">
-            <button
-              type="button"
-              className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100 h-100"
-            >
-              <span>Удалить</span>
-            </button>
-          </div>
-        </div>
-      </section>
+      {myUser?.role == "Admin" && (
+        <>
+          <section>
+            <NewTypeForm onAdd={getData} />
+          </section>
+          <section>
+            <DeleteTypeForm ypks={ypks} onDelete={getData} />
+          </section>
+        </>
+      )}
     </section>
   );
 };

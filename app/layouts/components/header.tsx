@@ -24,7 +24,7 @@ export default function Header() {
   };
 
   const navLinks = [
-    { path: "/comments", img: "/img/comment.png", label: "Комментарии", authRequired: false },
+    { path: "/feedback", img: "/img/comment.png", label: "Комментарии", authRequired: false },
     { path: "/profile", img: "/img/user.png", label: "Профиль", authRequired: true },
     { path: "/like", img: "/img/heart.png", label: "Избранное", authRequired: true },
     { path: "/login", img: "/img/user.png", label: "Войти", authRequired: false, isLogin: true }

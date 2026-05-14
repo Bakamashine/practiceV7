@@ -1,124 +1,78 @@
-import type { Route } from "./+types/create";
-import { protectedMiddleware } from "~/middleware/protectedMiddleware";
+import type { Route } from "./+types/index";
+import feedback from "~/api/feedback";
+import AdaptivePaginator from "~/components/AdaptivePaginator";
+import Loader from "~/components/Loader";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router";
+import default_image_url from "~/constants/image";
+import FeedbackCard from "~/components/FeedbackCard";
 
-export const middleware: Route.MiddlewareFunction[] = [protectedMiddleware];
-
-export async function loader() {
-  return null;
+export async function clientLoader({ request }: Route.LoaderArgs) {
+  const url = new URL(request.url);
+  const page = parseInt(url.searchParams.get("page") || "1");
+  const feedbacks = await feedback.getAllWithPaginate(page);
+  return feedbacks;
 }
 
-export default function CommentsView() {
-    return (
-        <div className="reviews content">
-    <section className="m-5 reviews">
+export default function CommentsView({ loaderData }: Route.ComponentProps) {
+  const [feedbacks, setFeedbacks] = useState(loaderData);
+  const [load, setLoad] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  const getData = async () => {
+    const page = searchParams.get("page") || "1";
+
+    feedback.getAllWithPaginate(parseInt(page)).then((result) => {
+      setFeedbacks(result);
+      setLoad(false);
+    });
+  };
+  useEffect(() => {
+    setLoad(true);
+    getData();
+  }, [searchParams]);
+
+  if (load) {
+    return <Loader />;
+  }
+
+  //   const formatDate = (dateString: string) => {
+  //     const date = new Date(dateString);
+  //     return date.toLocaleDateString("ru-RU", {
+  //       day: "numeric",
+  //       month: "long",
+  //       year: "numeric",
+  //     });
+  //   };
+
+  const destroyFeedback = async (idFeedback:  string) => {
+    const result = await feedback.destroy(String(idFeedback));
+    getData();
+  };
+
+  const callbacks = {
+    delete: destroyFeedback,
+  };
+
+  return (
+    <div className="reviews content">
+      <section className="m-5 reviews">
         <h1>Отзывы наших клиентов</h1>
         <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4 my-3">
-            {/* <!-- отзыв 1 --> */}
-            <div className="col d-flex">
-                <div className="rounded shadow p-4 w-100 bg-white">
-                    <div className="d-flex align-items-center gap-3 mb-3">
-                        <img src="img/f" alt="avatar" className="rounded-circle object-fit" width="60" height="60"  />
-                        <div>
-                            <h5 className="mb-0">Анна Иванова</h5>
-                            <div className="text-warning">
-                                <span>★★★★★</span>
-                            </div>
-                        </div>
-                    </div>
-                    <p className="mb-0 text-secondary">Отличный сервис! Всё сделали быстро и качественно. Обязательно обращусь ещё раз.</p>
-                    <small className="text-muted d-block mt-2">15 марта 2025</small>
-                </div>
-            </div>
-
-            <div className="col d-flex">
-                <div className="rounded shadow p-4 w-100 bg-white">
-                    <div className="d-flex align-items-center gap-3 mb-3">
-                        <img src="img/avatar2.png" alt="avatar" className="rounded-circle object-fit" width="60" height="60"  />
-                        <div>
-                            <h5 className="mb-0">Дмитрий Петров</h5>
-                            <div className="text-warning">
-                                <span>★★★★☆</span>
-                            </div>
-                        </div>
-                    </div>
-                    <p className="mb-0 text-secondary">Хорошие товары, приятные цены. Немного задержали доставку, но в целом всё отлично.</p>
-                    <small className="text-muted d-block mt-2">10 марта 2025</small>
-                </div>
-            </div>
-
-             <div className="col d-flex">
-                <div className="rounded shadow p-4 w-100 bg-white">
-                    <div className="d-flex align-items-center gap-3 mb-3">
-                        <img src="img/avatar2.png" alt="avatar" className="rounded-circle object-fit" width="60" height="60"  />
-                        <div>
-                            <h5 className="mb-0">Дмитрий Петров</h5>
-                            <div className="text-warning">
-                                <span>★★★★☆</span>
-                            </div>
-                        </div>
-                    </div>
-                    <p className="mb-0 text-secondary">Хорошие товары, приятные цены. Немного задержали доставку, но в целом всё отлично.</p>
-                    <small className="text-muted d-block mt-2">10 марта 2025</small>
-                </div>
-            </div>
-
-            <div className="col d-flex">
-                <div className="rounded shadow p-4 w-100 bg-white">
-                    <div className="d-flex align-items-center gap-3 mb-3">
-                        <img src="img/avatar2.png" alt="avatar" className="rounded-circle object-fit" width="60" height="60"  />
-                        <div>
-                            <h5 className="mb-0">Дмитрий Петров</h5>
-                            <div className="text-warning">
-                                <span>★★★★☆</span>
-                            </div>
-                        </div>
-                    </div>
-                    <p className="mb-0 text-secondary">Хорошие товары, приятные цены. Немного задержали доставку, но в целом всё отлично.</p>
-                    <small className="text-muted d-block mt-2">10 марта 2025</small>
-                </div>
-            </div>
-
-            
-            <div className="col d-flex">
-                <div className="rounded shadow p-4 w-100 bg-white">
-                    <div className="d-flex align-items-center gap-3 mb-3">
-                        <img src="img/avatar2.png" alt="avatar" className="rounded-circle object-fit" width="60" height="60"  />
-                        <div>
-                            <h5 className="mb-0">Дмитрий Петров</h5>
-                            <div className="text-warning">
-                                <span>★★★★☆</span>
-                            </div>
-                        </div>
-                    </div>
-                    <p className="mb-0 text-secondary">Хорошие товары, приятные цены. Немного задержали доставку, но в целом всё отлично.</p>
-                    <small className="text-muted d-block mt-2">10 марта 2025</small>
-                </div>
-            </div>
-
-            <div className="col d-flex">
-                <div className="rounded shadow p-4 w-100 bg-white">
-                    <div className="d-flex align-items-center gap-3 mb-3">
-                        <img src="img/avatar2.png" alt="avatar" className="rounded-circle object-fit" width="60" height="60"  />
-                        <div>
-                            <h5 className="mb-0">Дмитрий Петров</h5>
-                            <div className="text-warning">
-                                <span>★★★★☆</span>
-                            </div>
-                        </div>
-                    </div>
-                    <p className="mb-0 text-secondary">Хорошие товары, приятные цены. Немного задержали доставку, но в целом всё отлично.</p>
-                    <small className="text-muted d-block mt-2">10 марта 2025</small>
-                </div>
-            </div>
+          {feedbacks?.items.map((item) => (
+            <FeedbackCard props={item} key={item.id} callbacks={callbacks} />
+          ))}
         </div>
 
-        {/* <!-- кнопка "Еще отзывы" --> */}
-        <div className="d-flex justify-content-center mt-5">
-            <button type="button" className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-3 px-5 text-white">
-                <span>Еще отзывы</span>
-            </button>
-        </div>
-    </section>
-</div>
-    )
+        {feedbacks && feedbacks.pageCount > 1 && (
+          <div className="d-flex justify-content-center mt-5">
+            <AdaptivePaginator
+              page={feedbacks.page}
+              pageCount={feedbacks.pageCount}
+            />
+          </div>
+        )}
+      </section>
+    </div>
+  );
 }
