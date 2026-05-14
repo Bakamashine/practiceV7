@@ -25,6 +25,7 @@ export default [
   route("/profile/edit", './views/profile/edit.tsx'),
 
 
+  
   // feedback
   // route("comments", "./views/comments/index.tsx"),
   route("feedback", "./views/feedback/index.tsx"),

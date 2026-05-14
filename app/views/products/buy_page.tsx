@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import Modal from "react-bootstrap/Modal";
-import Button from "react-bootstrap/Button";
+import { Modal, Button } from "react-bootstrap";
 
 const BuyPage: React.FC = () => {
   const [show, setShow] = useState(false);
