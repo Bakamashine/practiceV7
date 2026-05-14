@@ -1,0 +1,4379 @@
+
+==================================================
+react-router.config.ts:
+==================================================
+import type { Config } from "@react-router/dev/config";
+
+export default {
+  // Config options...
+  // Server-side render by default, to enable SPA mode set this to `false`
+  ssr: true,
+  future: {
+    v8_middleware: true
+  }
+} satisfies Config;
+
+
+
+==================================================
+vite.config.ts:
+==================================================
+import { reactRouter } from "@react-router/dev/vite";
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [tailwindcss(), reactRouter()],
+  resolve: {
+    tsconfigPaths: true,
+  },
+});
+
+
+==================================================
+app\root.tsx:
+==================================================
+import {
+  isRouteErrorResponse,
+  Links,
+  Meta,
+  Outlet,
+  redirect,
+  Scripts,
+  ScrollRestoration,
+  useLoaderData,
+} from "react-router";
+
+import type { Route } from "./+types/root";
+import Header from "./layouts/components/header";
+import Footer from "./layouts/components/footer";
+import "./css/main.css";
+import "/node_modules/bootstrap/dist/css/bootstrap.min.css";
+import AuthContext from "./context/AuthContext";
+import { useState, useEffect } from "react";
+import UserContext from "./context/UserContext";
+import auth, { type UserData } from "./api/auth";
+import Loader from "./components/Loader";
+
+export async function loader() {
+  return null;
+  // return { isAuth: false, user: null };
+}
+
+export function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <Meta />
+        <Links />
+      </head>
+
+      <body>
+        {children}
+        <ScrollRestoration />
+        <Scripts />
+      </body>
+    </html>
+  );
+}
+
+export default function App() {
+  const [isAuth, setAuth] = useState<boolean>(false);
+  const [user, setUser] = useState<UserData | null>(null);
+  const [load, setLoad] = useState(true);
+  // const [coldown, setColDown] = useState();
+
+  const getUser = async () => {
+    try {
+      const result = await auth.getMe();
+      if (result) {
+        console.log("User: ", result.data);
+        setUser(result.data);
+        setAuth(true);
+      } else {
+        setAuth(false);
+        // throw redirect("/login")
+      }
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoad(false);
+    }
+  };
+
+  useEffect(() => {
+    getUser();
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(
+      async () => {
+        const result = await auth.refreshToken();
+        if (result.status !== 200) {
+          setAuth(false);
+          setUser(null);
+        }
+      },
+      4 * 60 * 1000,
+    );
+    return () => clearInterval(interval);
+  });
+  if (load) {
+    return <Loader />;
+  }
+  return (
+    <AuthContext.Provider value={{ isAuth, setAuth }}>
+      <UserContext.Provider value={{ user, setUser }}>
+        <Header />
+
+        <Outlet />
+        <Footer />
+      </UserContext.Provider>
+    </AuthContext.Provider>
+  );
+}
+
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  let message = "Oops!";
+  let details = "An unexpected error occurred.";
+  let stack: string | undefined;
+
+  if (isRouteErrorResponse(error)) {
+    message = error.status === 404 ? "404" : "Error";
+    details =
+      error.status === 404
+        ? "The requested page could not be found."
+        : error.statusText || details;
+  } else if (import.meta.env.DEV && error && error instanceof Error) {
+    details = error.message;
+    stack = error.stack;
+  }
+
+  return (
+    <main className="pt-16 p-4 container mx-auto">
+      <h1>{message}</h1>
+      <p>{details}</p>
+      {stack && (
+        <pre className="w-full p-4 overflow-x-auto">
+          <code>{stack}</code>
+        </pre>
+      )}
+    </main>
+  );
+}
+
+
+==================================================
+app\routes.ts:
+==================================================
+import {
+  type RouteConfig,
+  index,
+  route,
+} from "@react-router/dev/routes";
+
+export default [
+  index("./views/index.tsx"),
+
+  // Product
+  route("product/:id", "./views/products/show.tsx"),
+  route("product/:id/edit", "./views/products/edit.tsx"),
+  route("product/edit_page", "./views/products/edit_page.tsx"),
+  route("buy_page", "./views/products/buy_page.tsx"),
+  route("product/create", "./views/products/create.tsx"),
+
+  // Auth
+  route("login", "./views/auth/login.tsx"),
+  route("register", "./views/auth/register.tsx"),
+
+
+  // Profile
+  route("profile", "./views/profile/index.tsx"),
+  route("like", "./views/profile/like.tsx"),
+  route("/profile/edit", './views/profile/edit.tsx'),
+
+
+  
+  // feedback
+  // route("comments", "./views/comments/index.tsx"),
+  route("feedback", "./views/feedback/index.tsx"),
+  route("feedback/create", "./views/feedback/create.tsx"),
+
+  // User management
+  route("user", "./views/user/index.tsx"),
+
+  route("*", "./views/notFound.tsx"),
+] satisfies RouteConfig;
+
+
+==================================================
+app\api\auth.ts:
+==================================================
+import { decodeToken } from "react-jwt";
+import guestAxios from "../config/guestAxios";
+import BaseApi, { type ApiResponse } from "./base_api";
+import type { AxiosRequestConfig } from "axios";
+import { redirect } from "react-router";
+import authAxios from "~/config/authAxios";
+// import type IUser from "../interface/IUser";
+
+export interface UserLogin {
+  fullName?: string;
+  phoneNumber: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface UserData extends AuthResponse {
+  id: string;
+  name: string;
+  phoneNumber: string;
+  role: string;
+  userInfo?: string;
+  avatarUrl?: string;
+}
+
+const phoneKey =
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/mobilephone";
+
+interface DecodedToken {
+  aud: string;
+  exp: number;
+  [phoneKey]: string;
+  iat: number;
+  nameid: string;
+  nbf: number;
+  role: string;
+  unique_name: string;
+}
+
+class Auth extends BaseApi {
+  private decodeToUserData(
+    accessToken: string,
+    refreshToken: string,
+  ): ApiResponse<UserData> {
+    const decodedToken = decodeToken<DecodedToken>(accessToken);
+
+    if (!decodedToken) {
+      return { data: null, error: "Invalid token", status: 401 };
+    }
+
+    return {
+      data: {
+        id: decodedToken.nameid,
+        name: decodedToken.unique_name,
+        phoneNumber: decodedToken[phoneKey],
+        role: decodedToken.role,
+        accessToken,
+        refreshToken,
+      },
+      error: null,
+      status: 200,
+    };
+  }
+
+  async register(user: UserLogin): Promise<ApiResponse<UserData>> {
+    const result = await this.post<AuthResponse>(guestAxios, "Auth/register", {
+      fullName: user.fullName,
+      phoneNumber: user.phoneNumber,
+      password: user.password,
+    });
+
+    if (result.error) {
+      return { data: null, error: result.error, status: result.status };
+    }
+
+    return this.decodeToUserData(
+      result.data!.accessToken,
+      result.data!.refreshToken,
+    );
+  }
+
+  async login(user: UserLogin): Promise<ApiResponse<UserData>> {
+    const result = await this.post<AuthResponse>(guestAxios, "Auth/login", {
+      PhoneNumber: user.phoneNumber,
+      Password: user.password,
+    });
+
+    if (result.error) {
+      return { data: null, error: result.error, status: result.status };
+    }
+
+    return this.decodeToUserData(
+      result.data!.accessToken,
+      result.data!.refreshToken,
+    );
+  }
+
+  async getMe(): Promise<ApiResponse<UserData> | undefined> {
+    const result = await this.get<UserData>(guestAxios, "Auth/me");
+    if (result.status == 401) {
+      const refresh = await this.refreshToken();
+      if (refresh.status == 401) {
+        return undefined;
+      }
+      return this.getMe();
+    }
+    return result;
+  }
+
+  async refreshToken(): Promise<ApiResponse<AuthResponse>> {
+    return this.post<AuthResponse>(guestAxios, "Auth/loginViaToken", {});
+  }
+
+  async logout() {
+    const result = await this.post(authAxios, "auth/logout")
+    // window.cookieStore.
+  }
+}
+
+export default new Auth();
+
+
+==================================================
+app\api\base_api.ts:
+==================================================
+import axios, {
+  type AxiosInstance,
+  type AxiosRequestConfig,
+  type AxiosResponse,
+} from "axios";
+
+export interface ApiResponse<T = any> {
+  data: T | null;
+  error: any[] | string | null;
+  status: number;
+}
+
+export default class BaseApi {
+  private createRequestConfig(
+    method: string,
+    url: string,
+    payload?: object,
+    extraConfig?: AxiosRequestConfig,
+  ): AxiosRequestConfig {
+    return {
+      method,
+      url,
+      data: payload,
+      validateStatus: (status) => status < 500,
+      ...extraConfig,
+    };
+  }
+
+  protected async request<T = any>(
+    axiosInstance: AxiosInstance,
+    url: string,
+    payload?: object,
+    method: AxiosRequestConfig["method"] = "get",
+    extraConfig?: AxiosRequestConfig,
+  ): Promise<ApiResponse<T>> {
+    try {
+      const config = this.createRequestConfig(method, url, payload, extraConfig);
+      const response: AxiosResponse<T> = await axiosInstance.request<T>(config);
+
+      if (response.status >= 400) {
+        return {
+          data: null,
+          error: response.data as any,
+          status: response.status,
+        };
+      }
+
+      return {
+        data: response.data,
+        error: null,
+        status: response.status,
+      };
+    } catch (err) {
+      return {
+        data: null,
+        error: err instanceof Error ? err.message : "Unknown error",
+        status: 0,
+      };
+    }
+  }
+
+  protected async get<T = any>(
+    axiosInstance: AxiosInstance,
+    url: string,
+    extraConfig?: AxiosRequestConfig,
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(axiosInstance, url, undefined, "get", extraConfig);
+  }
+
+  protected async post<T = any>(
+    axiosInstance: AxiosInstance,
+    url: string,
+    payload?: object,
+    extraConfig?: AxiosRequestConfig,
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(axiosInstance, url, payload, "post", extraConfig);
+  }
+
+  protected async put<T = any>(
+    axiosInstance: AxiosInstance,
+    url: string,
+    payload?: object,
+    extraConfig?: AxiosRequestConfig,
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(axiosInstance, url, payload, "put", extraConfig);
+  }
+
+  protected async patch<T = any>(
+    axiosInstance: AxiosInstance,
+    url: string,
+    payload?: object,
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(axiosInstance, url, payload, "patch");
+  }
+
+  protected async delete<T = any>(
+    axiosInstance: AxiosInstance,
+    url: string,
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(axiosInstance, url, undefined, "delete");
+  }
+}
+
+
+==================================================
+app\api\feedback.ts:
+==================================================
+import guestAxios from "~/config/guestAxios";
+import BaseApi from "./base_api";
+import type IBaseValidation from "~/interface/IBaseValidation";
+import type IPaginate from "~/interface/IPaginate";
+import authAxios from "~/config/authAxios";
+
+export interface FeedbackCreate {
+  Comment: string;
+  Rating: string;
+}
+
+export interface UserDto {
+  id: string;
+  fullname: string;
+  hashPassword: string;
+  phoneNumber: string;
+  userInfo: string;
+  isActive: true;
+  avatarPath: string;
+  avatarUrl: string;
+  role: {
+    id: string;
+    name: string;
+  };
+  ypk: null;
+}
+
+export interface FeedbackResponse {
+  id: string;
+  comment: string;
+  raiting: string;
+  user: UserDto;
+}
+
+export interface FeedbackResponseWithPagination extends IPaginate {
+  items: FeedbackResponse[];
+}
+
+export interface FeedbackValidation extends IBaseValidation {
+  errors: {
+    Comment?: string[];
+    Rating?: string[];
+  };
+}
+
+class Feedback extends BaseApi {
+  async create(feedback: FeedbackCreate) {
+    const formData = new FormData();
+    formData.append("Comment", feedback.Comment);
+    formData.append("Rating", feedback.Rating);
+    const result = await this.post<string | FeedbackValidation>(
+      guestAxios,
+      "feedback",
+      formData,
+    );
+    console.log("Create feedback: ", result);
+    return result;
+  }
+
+  async getAllWithPaginate(page: number = 1) {
+    const params = new URLSearchParams({
+      pageSize: "6",
+      page: String(page),
+    });
+    const result = await this.get<FeedbackResponseWithPagination>(
+      guestAxios,
+      `/feedback/pag/all?${params}`,
+    );
+    console.log("Feedback getAllWithPaginate: ", result);
+    return result.data;
+  }
+
+  async destroy(idFeedback: string) {
+    const result = await this.delete(authAxios, `/feedback/${idFeedback}`)
+    console.log("Destroy feedback: ", result)
+    return result
+  }
+}
+
+export default new Feedback();
+
+
+==================================================
+app\api\like.ts:
+==================================================
+import authAxios from "~/config/authAxios";
+import BaseApi from "./base_api";
+
+class Like extends BaseApi {
+    async create(idProduct: string) {
+        throw new Error("Method is not allowed")
+        const result = await this.post(authAxios, "")
+    }
+}
+
+export default new Like
+
+==================================================
+app\api\order.ts:
+==================================================
+import guestAxios from "~/config/guestAxios";
+import BaseApi from "./base_api";
+import { type ProductResponse } from "./product";
+import type IPaginate from "~/interface/IPaginate";
+
+export interface OrderResponse {
+  id: string;
+  executorId: string;
+  customerId: string;
+  date: string;
+  statusName: string;
+  customersComment: "string";
+  userComment: "string";
+  productDto: ProductResponse;
+}
+
+export interface OrderResponseWithPagination extends IPaginate {
+  items: OrderResponse[];
+}
+
+class Order extends BaseApi {
+  async getWithPaginate(currentPage: number = 1) {
+    const params = new URLSearchParams({ pageSize: "5", page: String(currentPage) });
+    const response = await this.get<OrderResponseWithPagination>(
+      guestAxios,
+      `order/pag/all?${params}`,
+    );
+    console.log("Order getAll: ", response.data);
+    return response.data;
+  }
+}
+
+export default new Order();
+
+
+==================================================
+app\api\product.ts:
+==================================================
+import type IPaginate from "~/interface/IPaginate";
+import guestAxios from "../config/guestAxios";
+import BaseApi, { type ApiResponse } from "./base_api";
+import authAxios from "~/config/authAxios";
+import type IBaseValidation from "~/interface/IBaseValidation";
+
+export interface ProductResponse {
+  id: string;
+  ypkId: string;
+  productName: string;
+  productCost: number;
+  productInfo: string;
+  isProduct: boolean;
+  photoPath?: string;
+  photoUrl?: string;
+  address: string;
+  statusProductId: string;
+}
+
+export interface ProductUpdate {
+  id: string;
+  productInfo: string;
+  productName: string;
+  address: string;
+  photo: File | null;
+  productCost: number;
+  isProduct: boolean;
+  ypkId: string;
+  statusProductId: string;
+}
+
+export interface ProductUpdateValidation extends IBaseValidation {
+  errors: {
+    YpkId?: string[];
+    Address?: string[];
+    IsProduct?: string[];
+    ProductCost?: string[];
+    ProductInfo?: string[];
+    ProductName?: string[];
+    StatusProductId?: string[];
+  };
+}
+export interface ProductResponseAny {
+  products: ProductResponse[];
+}
+
+export interface ProductCreate {
+  ProductName: string;
+  ProductInfo: string;
+  ProductCost: number;
+  IsProduct: boolean;
+  Address: string;
+  Photo: File | null;
+  YpkId: string;
+  StatusProductId: string;
+}
+
+export interface ProductResponseWithPagination extends IPaginate {
+  items: ProductResponse[];
+}
+class Product extends BaseApi {
+  /**
+   * Only get all
+   */
+  async getAll() {
+    const response = await this.get<ProductResponseAny>(
+      guestAxios,
+      "/Product/all",
+    );
+    console.log("Product getAll: ", response);
+    return response.data;
+  }
+
+  async getWithPaginate(currentPage: number = 1) {
+    const params = new URLSearchParams({
+      pageSize: "5",
+      page: String(currentPage),
+    });
+    const response = await this.get<ProductResponseWithPagination>(
+      guestAxios,
+      `/Product/pag/all?${params}`,
+    );
+    console.log("Product getWithPaginate: ", response);
+    return response.data;
+  }
+
+  async getById(id: string) {
+    const response = await this.get<ProductResponse>(
+      guestAxios,
+      `/Product/${id}`,
+    );
+    console.log("Product detail: ", response);
+    return response.data;
+  }
+
+  async postLike(id: string) {}
+
+  async getBySearchTextWithPaginate(searchText: string, page: string) {
+    const params = new URLSearchParams({
+      searchText,
+      pageSize: "5",
+      page: page,
+    });
+    const result = await this.get<ProductResponseWithPagination>(
+      guestAxios,
+      `Product/pag/all?${params}`,
+    );
+    return result.data;
+  }
+
+  async updateProduct(product: ProductUpdate) {
+    const formData = new FormData();
+    formData.append("Id", product.id);
+    formData.append("YpkId", product.ypkId);
+    formData.append("ProductName", product.productName);
+    formData.append("ProductCost", String(product.productCost));
+    formData.append("ProductInfo", product.productInfo);
+    formData.append("IsProduct", String(product.isProduct));
+    if (product.photo) formData.append("Photo", product.photo);
+    formData.append("address", product.address);
+    formData.append("statusProductId", product.statusProductId);
+
+    const result = await this.put(authAxios, "/product", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    console.log("Update product: ", result);
+    return result;
+  }
+
+  async create(product: ProductCreate) {
+    const formData = new FormData();
+    formData.append("YpkId", product.YpkId);
+    formData.append("ProductName", product.ProductName);
+    formData.append("ProductCost", String(product.ProductCost));
+    formData.append("ProductInfo", product.ProductInfo);
+    formData.append("IsProduct", String(product.IsProduct));
+    if (product.Photo) formData.append("Photo", product.Photo);
+    formData.append("address", product.Address);
+    formData.append("statusProductId", product.StatusProductId);
+
+    const result = await this.post(authAxios, "/product", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    console.log("Create product: ", result);
+    return result;
+  }
+
+  async destroy(idProduct: string) {
+    const result = await this.delete(authAxios, `product/${idProduct}`);
+    console.log("Destroy product: ", result)
+    return result
+  }
+}
+
+export default new Product();
+
+
+==================================================
+app\api\status_product.ts:
+==================================================
+import authAxios from "~/config/authAxios";
+import BaseApi from "./base_api";
+
+export interface StatusProductResponse {
+  statusProducts: {
+    id: string;
+    statusName: string;
+  }[];
+}
+
+class StatusProduct extends BaseApi {
+  async getAll() {
+    return (await this.get<StatusProductResponse>(authAxios, `/StatusProduct/all`)).data;
+  }
+}
+
+export default new StatusProduct();
+
+
+==================================================
+app\api\user.ts:
+==================================================
+import authAxios from "~/config/authAxios";
+import BaseApi from "./base_api";
+import type { UserData } from "./auth";
+import type IBaseValidation from "~/interface/IBaseValidation";
+
+export interface UserUpdate {
+  Fullname: string;
+  PhoneNumber: string;
+  UserInfo: string;
+  Avatar?: File;
+}
+
+export interface UserUpdateValidate extends IBaseValidation {
+  errors: {
+    Fullname?: string[];
+    PhoneNumber?: string[];
+  };
+}
+
+class User extends BaseApi {
+  async getFullInfo() {
+    const result = await this.get<UserData>(authAxios, "Auth/me/all");
+    console.log("GetFull user info: ", result.data);
+    return result;
+  }
+
+  async updateUserInfo(user: UserUpdate) {
+    const formData = new FormData();
+    formData.append("Fullname", user.Fullname);
+    formData.append("PhoneNumber", user.PhoneNumber);
+    formData.append("UserInfo", user.UserInfo);
+    if (user.Avatar) {
+      formData.append("Avatar", user.Avatar);
+    }
+
+    const result = await this.put(authAxios, "/user/current", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    console.log("Update user: ", result);
+    return result;
+  }
+}
+
+export default new User();
+
+
+==================================================
+app\api\user_management.ts:
+==================================================
+import authAxios from "~/config/authAxios";
+import BaseApi from "./base_api";
+import type { UserDto } from "./feedback";
+import type IPaginate from "~/interface/IPaginate";
+import type IBaseValidation from "~/interface/IBaseValidation";
+
+export interface UserManagementCreate {
+  Fullname: string;
+  PhoneNumber: string;
+  Password: string;
+  RoleId: string;
+}
+
+export interface UserManagementUpdate {
+  Id: string;
+  Fullname: string;
+  PhoneNumber: string;
+  RoleId: string;
+  IsActive: boolean;
+  Avatar?: File;
+}
+
+export interface UserDtoWithPagination extends IPaginate {
+  items: UserDto[];
+}
+
+export interface RoleDto {
+  id: string;
+  name: string;
+}
+
+export interface UserManagementValidation extends IBaseValidation {
+  errors: {
+    Fullname?: string[];
+    PhoneNumber?: string[];
+    Password?: string[];
+    RoleId?: string[];
+  };
+}
+
+class UserManagement extends BaseApi {
+  async getAllWithPaginate(page: string|number) {
+    const params = new URLSearchParams({
+      pageSize: "6",
+      page: String(page),
+    });
+    const result = await this.get<UserDtoWithPagination>(authAxios, `user/pag/all?${params}`);
+    console.log("Getall user: ", result)
+    return result.data;
+  }
+
+  async getAllRoles() {
+    const result = await this.get<{ roles: RoleDto[] }>(authAxios, "role/all");
+    return result.data;
+  }
+
+  async create(user: UserManagementCreate) {
+    const formData = new FormData();
+    formData.append("Fullname", user.Fullname);
+    formData.append("PhoneNumber", user.PhoneNumber);
+    formData.append("Password", user.Password);
+    formData.append("RoleId", user.RoleId);
+    const result = await this.post<UserDto>(authAxios, "user", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return result;
+  }
+
+  async update(user: UserManagementUpdate) {
+    const formData = new FormData();
+    formData.append("Id", user.Id);
+    formData.append("Fullname", user.Fullname);
+    formData.append("PhoneNumber", user.PhoneNumber);
+    formData.append("RoleId", user.RoleId);
+    formData.append("IsActive", String(user.IsActive));
+    if (user.Avatar) {
+      formData.append("Avatar", user.Avatar);
+    }
+    console.log("Update user payload:", Object.fromEntries(formData));
+    const result = await this.put<UserDto>(authAxios, `user/admin`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    console.log("Update user result:", result);
+    return result;
+  }
+
+  async deleteUser(id: string) {
+    const result = await this.delete<UserDto>(authAxios, `user/${id}`);
+    return result;
+  }
+}
+
+export default new UserManagement();
+
+
+==================================================
+app\api\ypk.ts:
+==================================================
+import authAxios from "~/config/authAxios";
+import BaseApi from "./base_api";
+import guestAxios from "~/config/guestAxios";
+
+export interface OneYpkResponse {
+  id: string;
+  ypkName: string;
+  description: string;
+  isActive: boolean;
+}
+export interface YpkResponse {
+  ypks: OneYpkResponse[];
+}
+
+class Ypk extends BaseApi {
+  async getAll() {
+    return (await this.get<YpkResponse>(guestAxios, "Ypk/all")).data;
+  }
+  async destroy(idYpk:string) {
+    const result = await this.delete(authAxios, `ypk/${idYpk}`)
+    console.log("Delete ypk: ", result)
+    return result;
+  }
+}
+
+export default new Ypk();
+
+
+==================================================
+app\api\_type.ts:
+==================================================
+import authAxios from "~/config/authAxios";
+import BaseApi from "./base_api";
+import type IBaseValidation from "~/interface/IBaseValidation";
+
+export interface TypeValidation extends IBaseValidation {
+  errors: {
+    ypkName?: string[];
+    description?: string[];
+  };
+}
+
+class Type extends BaseApi {
+  async create(ypkName: string) {
+    const result = await this.post<string | TypeValidation>(authAxios, "/Ypk", {
+      ypkName,
+      description: "",
+    });
+    console.log("Create type: ", result);
+    return result;
+  }
+}
+
+export default new Type 
+
+==================================================
+app\components\AdaptivePaginator.tsx:
+==================================================
+import { Pagination } from "react-bootstrap";
+import { useNavigate, useSearchParams } from "react-router";
+
+interface AdaptivePaginatorProps {
+  page: number;
+  pageCount: number;
+}
+
+export default function AdaptivePaginator({ page, pageCount }: AdaptivePaginatorProps) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  if (pageCount <= 1) return null;
+
+  const goToPage = (newPage: number) => {
+    searchParams.set("page", newPage.toString());
+    navigate(`?${searchParams.toString()}`);
+  };
+
+  return (
+    <Pagination className="justify-content-center mt-4">
+      <Pagination.First disabled={page === 1} onClick={() => goToPage(1)} />
+      <Pagination.Prev disabled={page === 1} onClick={() => goToPage(page - 1)} />
+
+      {Array.from({ length: pageCount }, (_, i) => i + 1).map((p) => (
+        <Pagination.Item key={p} active={p === page} onClick={() => goToPage(p)}>
+          {p}
+        </Pagination.Item>
+      ))}
+
+      <Pagination.Next disabled={page === pageCount} onClick={() => goToPage(page + 1)} />
+      <Pagination.Last disabled={page === pageCount} onClick={() => goToPage(pageCount)} />
+    </Pagination>
+  );
+}
+
+
+==================================================
+app\components\FeedbackCard.tsx:
+==================================================
+import { useContext } from "react";
+import { Button } from "react-bootstrap";
+import type {
+  FeedbackResponse,
+  FeedbackResponseWithPagination,
+} from "~/api/feedback";
+import feedback from "~/api/feedback";
+import default_image_url from "~/constants/image";
+import UserContext from "~/context/UserContext";
+
+export interface FeedbackCardProps {
+  delete: (idFeedback: string) => Promise<void>;
+}
+
+export default function FeedbackCard({
+  props,
+  callbacks,
+}: {
+  props: FeedbackResponse;
+  callbacks: FeedbackCardProps;
+}) {
+  const { user } = useContext(UserContext);
+  const renderStars = (rating: string) => {
+    const stars = [];
+    const ratingNum = parseInt(rating) || 0;
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <span key={i} style={{ color: i <= ratingNum ? "orange" : "#ccc" }}>
+          &#9733;
+        </span>,
+      );
+    }
+    return stars;
+  };
+
+  return (
+    <div className="col d-flex" key={props.id}>
+      <div className="rounded shadow p-4 w-100 bg-white">
+        <div className="d-flex align-items-center gap-3 mb-3">
+          <img
+            src={props.user.avatarUrl || default_image_url}
+            alt={props.user.fullname}
+            className="rounded-circle object-fit"
+            width="60"
+            height="60"
+          />
+          <div>
+            <h5 className="mb-0">{props.user.fullname}</h5>
+            <div className="text-warning">{renderStars(props.raiting)}</div>
+          </div>
+        </div>
+        <p className="mb-0 text-secondary">{props.comment}</p>
+        {user && user.role == "Admin" && (
+          <div className="mt-3">
+            <Button variant="danger" onClick={() => callbacks.delete(props.id)}>
+              Удалить
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+==================================================
+app\components\Loader.tsx:
+==================================================
+import React from "react";
+
+interface LoaderProps {
+  size?: "sm" | "md" | "lg";
+  color?: string;
+  text?: string;
+  className?: string;
+}
+
+const sizeMap = {
+  sm: "spinner-border-sm",
+  md: "",
+  lg: "spinner-border-lg",
+};
+
+export const Loader: React.FC<LoaderProps> = ({
+  size = "md",
+  color = "primary",
+  text,
+  className = "",
+}) => {
+  return (
+    <div className={`d-flex flex-column align-items-center justify-content-center ${className}`}>
+      <div
+        className={`spinner-border text-${color} ${sizeMap[size]}`}
+        role="status"
+      >
+        <span className="visually-hidden">Загрузка...</span>
+      </div>
+      {text && <p className="mt-2 text-muted">{text}</p>}
+    </div>
+  );
+};
+
+export const LoaderOverlay: React.FC<{ text?: string }> = ({ text }) => {
+  return (
+    <div className="position-absolute top-0 start-0 w-100 h-100 bg-white bg-opacity-75 d-flex align-items-center justify-content-center">
+      <Loader text={text} />
+    </div>
+  );
+};
+
+export default Loader;
+
+==================================================
+app\components\OkModalWindow.tsx:
+==================================================
+import { Button, Modal } from "react-bootstrap";
+
+export interface GenericModalWindowProps {
+  closeWindow: () => void;
+  show: boolean;
+  headerText: string;
+  headerCenterText: string;
+  descriptionText?:string;
+}
+export default function GenericModalWindow(props: GenericModalWindowProps) {
+  return (
+    <Modal
+      size="lg"
+      aria-labelledby="contained-modal-title-vcenter"
+      centered
+      show={props.show}
+    >
+      <Modal.Header closeButton>
+        <Modal.Title id="contained-modal-title-vcenter">
+          {props.headerText}
+        </Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <h4>{props.headerCenterText}</h4>
+        <p>
+          {props.descriptionText}
+        </p>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button onClick={props.closeWindow}>Закрыть</Button>
+      </Modal.Footer>
+    </Modal>
+  );
+}
+
+
+==================================================
+app\components\showError.tsx:
+==================================================
+
+import type IRegisterValidation from "../interface/IRegisterValidation";
+
+interface ShowErrorProps {
+    error: any,
+    errorKey: string
+}
+export default function ShowError({error, errorKey}: ShowErrorProps) {
+    if (error?.errors?.[errorKey as keyof typeof error.errors]) {
+        const messages = error.errors[errorKey as keyof typeof error.errors];
+        return (
+            <>
+                {messages?.map((msg: string, i:string|number) => (
+                    <p className="text-danger" key={i}>{msg}</p>
+                ))}
+            </>
+        )
+    }
+    return null
+}
+
+==================================================
+app\components\SubmitModalWindow.tsx:
+==================================================
+import { Button, Modal } from "react-bootstrap";
+
+export interface SubmitModalWindowProps {
+    show: boolean;
+    handleClose: () => void;
+    success: () => void
+}
+
+export default function SubmitModalWindow(props: SubmitModalWindowProps) {
+  return (
+      <Modal show={props.show} onHide={props.handleClose}>
+        <Modal.Header closeButton>
+          <Modal.Title>Подтверждение</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>Вы уверены?</Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={props.handleClose}>
+            Закрыть
+          </Button>
+          <Button variant="primary" onClick={props.success}>
+            Сохранить изменения
+          </Button>
+        </Modal.Footer>
+      </Modal>
+  );
+}
+
+
+==================================================
+app\config\authAxios.ts:
+==================================================
+import axios from "axios";
+import backend_url from "../constants/url";
+import auth from "~/api/auth";
+
+const authAxios = axios.create({
+  baseURL: backend_url,
+  withCredentials: true,
+  validateStatus: (status) => status <= 500,
+});
+
+authAxios.interceptors.response.use(
+  function (response) {
+    if (response.status == 401) {
+      auth.refreshToken();
+    }
+    return response;
+  }
+)
+
+export default authAxios;
+
+
+==================================================
+app\config\guestAxios.ts:
+==================================================
+import axios from "axios";
+import backend_url from "../constants/url";
+
+const guestAxios = axios.create({
+    baseURL: backend_url,
+    withCredentials: true,
+    validateStatus: status => status < 401
+})
+
+export default guestAxios
+
+==================================================
+app\constants\const.ts:
+==================================================
+export const accessTokenKeyCookie = "accessToken";
+export const refreshTokenKeyCookie = "refreshToken";
+
+==================================================
+app\constants\image.ts:
+==================================================
+const default_image_url = "/img/default_image.jpg";
+
+export default default_image_url 
+
+==================================================
+app\constants\url.ts:
+==================================================
+const backend_url = import.meta.env.VITE_BACKEND_URL
+
+export default backend_url
+
+==================================================
+app\context\AuthContext.tsx:
+==================================================
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  type ReactNode,
+} from "react";
+
+export interface AuthContextType {
+  isAuth:  boolean;
+  setAuth: (status: boolean) => void;
+}
+
+const AuthContext = createContext<AuthContextType>({
+  isAuth: false,
+  setAuth: () => {},
+});
+
+
+export default AuthContext
+
+// export function AuthProvider({ children }: { children: ReactNode }) {
+//   const [token, setToken] = useState<string|undefined>(undefined)
+
+
+// }
+
+// function getUserFromStorage(): User | null {
+//   if (typeof window === "undefined") return null;
+//   const stored = localStorage.getItem("user");
+//   if (stored) {
+//     try {
+//       const parsed = JSON.parse(stored);
+//       if (parsed && parsed.id) return parsed;
+//     } catch {
+//       return null;
+//     }
+//   }
+//   return null;
+// }
+
+// export function AuthProvider({ children }: { children: ReactNode }) {
+//   const [user, setUserState] = useState<User | null>(null);
+
+//   useEffect(() => {
+//     setUserState(getUserFromStorage());
+//   }, []);
+
+//   const setUser = (userData: User | null) => {
+//     if (userData) {
+//       localStorage.setItem("user", JSON.stringify(userData));
+//     } else {
+//       localStorage.removeItem("user");
+//     }
+//     setUserState(userData);
+//   };
+
+//   const logout = () => {
+//     setUser(null);
+//   };
+
+//   return (
+//     <AuthContext.Provider value={{ user, setUser, logout }}>
+//       {children}
+//     </AuthContext.Provider>
+//   );
+// }
+
+// export function useAuth() {
+//   const context = useContext(AuthContext);
+//   if (context === undefined) {
+//     throw new Error("useAuth must be used within an AuthProvider");
+//   }
+//   return context;
+// }
+
+
+==================================================
+app\context\UserContext.tsx:
+==================================================
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  type ReactNode,
+} from "react";
+import type { UserData } from "~/api/auth";
+
+export interface UserContextType {
+
+  user: UserData | null;
+  setUser: (user: UserData | null) => void;
+}
+
+const UserContext = createContext<UserContextType>({
+  user: null,
+  setUser: () => {}
+});
+
+
+export default UserContext
+
+==================================================
+app\helper\getCookie.ts:
+==================================================
+function getCookieClient(name: string): string | undefined {
+  if (typeof document === "undefined") return undefined;
+
+  const cookieHeader = document.cookie;
+  if (!cookieHeader) return undefined;
+
+  return cookieHeader
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${name}=`))
+    ?.split("=")[1];
+}
+
+export default function getCookie({
+  request,
+  name,
+}: {
+  request?: Request;
+  name: string;
+}): string | undefined {
+  if (request) {
+    const cookieHeader = request.headers.get("cookie");
+    if (!cookieHeader) return undefined;
+
+    const cookie = cookieHeader
+      .split(";")
+      .map((c) => c.trim())
+      .find((c) => c.startsWith(`${name}=`));
+
+      // console.log(cookieHeader)
+    if (!cookie) return undefined;
+
+    // Берём всё после первого "=" — важно для JWT/base64 
+    return cookie.substring(name.length + 1);
+  }
+}
+
+==================================================
+app\hooks\useAuthProvider.ts:
+==================================================
+// import { type User } from "./useUser";
+// import { useState, useEffect, useCallback } from "react";
+
+// const isBrowser = typeof window !== "undefined";
+
+// export const useAuthProvider = () => {
+//   // const [token, setToken] = useState<string|null>(null)
+
+//   // return {token, setToken}
+
+
+//   const [user, setUser] = useState<User | null>(() => {
+//     if (!isBrowser) return null;
+//     const stored = localStorage.getItem("user");
+//     if (stored) {
+//       try {
+//         const parsed = JSON.parse(stored);
+//         if (parsed && parsed.id) {
+//           return parsed;
+//         }
+//       } catch {
+//         return null;
+//       }
+//     }
+//     return null;
+//   });
+
+//   useEffect(() => {
+//     if (!isBrowser) return;
+//     if (user) {
+//       localStorage.setItem("user", JSON.stringify(user));
+//     } else {
+//       localStorage.removeItem("user");
+//     }
+//   }, [user]);
+
+//   const addUser = useCallback((userData: User) => {
+//     setUser(userData);
+//   }, []);
+
+//   const removeUser = useCallback(() => {
+//     setUser(null);
+//   }, []);
+
+//   return { user, setUser, addUser, removeUser };
+// };
+
+==================================================
+app\hooks\useLocalStorage.ts:
+==================================================
+// import { useState } from "react";
+
+// export const useLocalStorage = () => {
+//   const [value, setValue] = useState<string | null>(null);
+
+//   const setItem = (key: string, value: string) => {
+//     localStorage.setItem(key, value);
+//     setValue(value);
+//   };
+//   const getItem = (key: string) => {
+//     const value = localStorage.getItem(key);
+//     setValue(value);
+//     return value;
+//   };
+
+//   const removeItem = (key: string) => {
+//     localStorage.removeItem(key);
+//     setValue(null);
+//   };
+
+//   return {
+//     value,
+//     setItem,
+//     getItem,
+//     removeItem,
+//   };
+// };
+
+
+==================================================
+app\hooks\useUser.ts:
+==================================================
+// // import { getUserFromStorage } from "../context/AuthContext";
+
+// export interface User {
+
+// }
+
+// export const useUser = () => {
+//   // TODO
+//   const user =null;
+
+//   const setUser = (userData: User | null) => {
+//     if (typeof window !== "undefined") {
+//       if (userData) {
+//         localStorage.setItem("user", JSON.stringify(userData));
+//       } else {
+//         localStorage.removeItem("user");
+//       }
+//       window.location.reload();
+//     }
+//   };
+
+//   return {
+//     user,
+//     setUser,
+//     addUser: setUser,
+//     removeUser: () => setUser(null),
+//   };
+// };
+
+==================================================
+app\interface\IBaseValidation.ts:
+==================================================
+export default  interface IBaseValidation {
+    type: string,
+    title: string,
+    status: number,
+    traceId: string,
+    errors: any,
+}
+
+
+
+==================================================
+app\interface\ILoginValidation.ts:
+==================================================
+import type IBaseValidation from "./IBaseValidation";
+
+export default interface ILoginValidation extends IBaseValidation {
+    errors: {
+        Password?: string[],
+        PhoneNumber?: string[]
+    }
+}
+
+==================================================
+app\interface\IPaginate.ts:
+==================================================
+export default interface IPaginate {
+  items: any[];
+  page: number;
+  pageSize: number;
+  pageCount: number;
+}
+
+
+==================================================
+app\interface\IRegisterValidation.ts:
+==================================================
+import type IBaseValidation from "./IBaseValidation";
+
+export default interface IRegisterValidation extends IBaseValidation {
+    errors: {
+        FullName?: string[],
+        Password?: string[],
+        PhoneNumber: string[]
+    }
+}
+
+==================================================
+app\interface\IUser.ts:
+==================================================
+// export default interface IUser {
+//   id: string;
+//   name: string;
+//   phoneNumber: string;
+//   authToken?: string;
+//   role: string;
+// }
+
+
+==================================================
+app\middleware\guestMiddleware.ts:
+==================================================
+import { redirect } from "react-router";
+import { accessTokenKeyCookie } from "~/constants/const";
+import getCookie from "~/helper/getCookie";
+
+export async function guestMiddleware({ request }: { request: Request }) {
+    const accessToken = getCookie({ request, name: accessTokenKeyCookie });
+    if (accessToken) {
+        throw redirect("/");
+    }
+}
+
+
+==================================================
+app\middleware\protectedMiddleware.ts:
+==================================================
+import { redirect } from "react-router";
+import { accessTokenKeyCookie } from "~/constants/const";
+import getCookie from "~/helper/getCookie";
+
+export async function protectedMiddleware({ request }: { request: Request }) {
+    // const accessToken = getCookie({ request, name: accessTokenKeyCookie });
+    // if (!accessToken) {
+    //     throw redirect("/login");
+    // }
+
+    const cookie  = request.headers.get("cookie")
+
+    if (!cookie || !cookie.includes("accessToken")) {
+        throw redirect("/login")
+    }
+}
+
+
+==================================================
+app\views\index.tsx:
+==================================================
+import { useNavigate } from "react-router";
+import product, {
+  type ProductResponseWithPagination,
+} from "../api/product";
+import default_image_url from "../constants/image";
+import type { Route } from "./+types";
+import AdaptivePaginator from "~/components/AdaptivePaginator";
+
+export interface OrdersAndProducts {
+  products?: ProductResponseWithPagination;
+}
+
+export async function loader({ request }: Route.LoaderArgs): Promise<OrdersAndProducts> {
+  const url = new URL(request.url);
+  const page = parseInt(url.searchParams.get("page") || "1");
+
+  const products = await product.getWithPaginate(page);
+  return {
+    products: products || undefined,
+  };
+}
+
+export default function MainPage({ loaderData }: Route.ComponentProps) {
+  const result = loaderData as OrdersAndProducts;
+  const navigation = useNavigate();
+
+  return (
+    <>
+      <div className="catalog content">
+        <section className="m-5 catalog ">
+          <h1>Товары</h1>
+          {result.products && result.products.items.length > 0 ? (
+            <>
+            
+              <div className="flexCenter">
+                <AdaptivePaginator
+                  page={result.products.page}
+                  pageCount={result.products.pageCount}
+                />
+              </div>
+              <div className="row row-cols-1 row-cols-2 row-cols-sm-2 row-cols-md-3 g-4 my-3">
+                {result.products.items.map((item) => (
+                  <div className="col d-flex" key={item.id}>
+                    <div className="rounded shadow p-3 w-100">
+                      <img
+                        src={item.photoUrl || default_image_url}
+                        className="card-img-top"
+                        alt="..."
+                      />
+                      <div className="card-body catalog">
+                        <h3 className="card-title">{item.productName}</h3>
+                        <h4>Цена {item.productCost} ₽</h4>
+                        <p>{item.productInfo}</p>
+                      </div>
+                      <div className="d-flex align-items-center ">
+                        <button
+                          type="button"
+                          className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center  p-2 text-white w-100"
+                          onClick={() => navigation(`/product/${item.id}`)}
+                        >
+                          <span>Подробнее</span>
+                        </button>
+
+                        <form action="" className="m-0 p-0 d-inline-block lh-1">
+                          <button
+                            type="button"
+                            className="border-0 bg-transparent p-0 "
+                          >
+                            <img
+                              src="img/greyHear.png"
+                              alt=""
+                              className="like"
+                            />
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flexCenter">
+                <AdaptivePaginator
+                  page={result.products.page}
+                  pageCount={result.products.pageCount}
+                />
+              </div>
+            </>
+          ) : (
+            <p className="text-center">Товаров нет</p>
+          )}
+        </section>
+      </div>
+    </>
+  );
+}
+
+
+==================================================
+app\views\notFound.tsx:
+==================================================
+import React from "react";
+import { Link } from "react-router";
+
+const NotFound: React.FC = () => {
+  return (
+    <div className="container text-center py-5">
+      <h1 className="display-1 fw-bold text-primary">404</h1>
+      <h2 className="mb-4">Страница не найдена</h2>
+      <p className="mb-4">Извините, запрашиваемая страница не существует.</p>
+      <Link to="/" className="sign-out d-inline-block px-4 py-2 text-white rounded-3 text-decoration-none">
+        На главную
+      </Link>
+    </div>
+  );
+};
+
+export default NotFound;
+
+==================================================
+app\welcome\welcome.tsx:
+==================================================
+export default function MainPage() {
+  return <p>Hello world</p>
+}
+
+==================================================
+app\views\auth\login.tsx:
+==================================================
+import { useState } from "react";
+import { Link } from "react-router";
+import ShowError from "../../components/showError";
+import type ILoginValidation from "../../interface/ILoginValidation";
+import auth from "../../api/auth";
+import type { Route } from "./+types/login";
+import { guestMiddleware } from "~/middleware/guestMiddleware";
+
+export const middleware: Route.MiddlewareFunction[] = [guestMiddleware];
+
+export async function loader() {
+  return null;
+}
+
+export default function LoginView() {
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<ILoginValidation | null>(null);
+
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const result = await auth.login({
+      phoneNumber: phone,
+      password,
+    });
+
+    if (result.status === 401) {
+      setError({
+        type: "",
+        title: "",
+        status: 401,
+        traceId: "",
+        errors: { PhoneNumber: ["Пользователь не найден"] },
+      } as ILoginValidation);
+      return;
+    }
+
+    if (result.error) {
+      setError(result.error as unknown as ILoginValidation);
+      return;
+    }
+
+    if (result.data) {
+      window.location.href = "/";
+    }
+  };
+
+  return (
+    <section className="d-flex justify-content-center registration content">
+      <div className="text-center my-5">
+        <h1 className="my-2">Добро пожаловать</h1>
+        <h5 className="my-4">
+          Еще нет аккаунта?{" "}
+          <Link to="/register" className="myA">
+            Создай его
+          </Link>
+        </h5>
+        <form method="post" onSubmit={submit}>
+          <input
+            type="tel"
+            placeholder="Ваш номер телефона"
+            className="w-75 border-0 myGrey rounded my-1 p-1 mySize20"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            required
+          />
+          <ShowError errorKey="PhoneNumber" error={error} />
+          <input
+            type="password"
+            placeholder="Ваш пароль"
+            className="w-75 border-0 myGrey rounded my-1 p-1 mySize20"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <ShowError errorKey="Password" error={error} />
+          <div>
+            <button
+              type="submit"
+              className="w-75 rounded-4 mySize20 myLightBlue text-white p-2 border-0 m-2"
+            >
+              Войти
+            </button>
+          </div>
+        </form>
+        <a href="NumberLogin.html" className="myA">
+          Забыли пароль?
+        </a>
+      </div>
+    </section>
+  );
+}
+
+
+==================================================
+app\views\auth\register.tsx:
+==================================================
+import { useState } from "react";
+import { Link } from "react-router";
+import ShowError from "../../components/showError";
+import type IRegisterValidation from "../../interface/IRegisterValidation";
+import auth from "../../api/auth";
+import { guestMiddleware } from "~/middleware/guestMiddleware";
+import type { Route } from "./+types/register";
+
+export const middleware: Route.MiddlewareFunction[] = [guestMiddleware];
+
+export async function loader() {
+  return null;
+}
+
+export default function RegisterView() {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<IRegisterValidation | null>(null);
+
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const result = await auth.register({
+      fullName: "ivan",
+      phoneNumber: "89805307554",
+      password: "moredock1",
+    });
+
+    if (result.status == 401 || result.error) {
+      if (result.status === 401) {
+        setError({
+          type: "",
+          title: "",
+          status: 401,
+          traceId: "",
+          errors: { FullName: ["Пользователь уже существует"] },
+        } as IRegisterValidation);
+        return;
+      }
+      setError(result.error as unknown as IRegisterValidation);
+      return;
+    }
+
+    if (result.data) {
+      window.location.href = "/";
+    }
+  };
+
+  return (
+    <section className="d-flex justify-content-center registration content">
+      <div className="text-center my-5">
+        <h1 className="my-2">Привет! Создай аккаунт</h1>
+        <h5 className="my-4">
+          Уже есть аккаунт?{" "}
+          <Link to={"/login"} className="myA">
+            Войдите в него
+          </Link>
+        </h5>
+        <form method="post" onSubmit={submit}>
+          <input
+            type="text"
+            placeholder="Ваше имя"
+            className="w-75 border-0 myGrey rounded my-1 p-1 mySize20"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            // required
+          />
+          <ShowError errorKey="FullName" error={error} />
+          <input
+            type="tel"
+            placeholder="Ваш номер телефона"
+            // pattern="\+7\s?\(?[0-9]{3}\)?\s?[0-9]{3}-?[0-9]{2}-?[0-9]{2}"
+            className="w-75 border-0 myGrey rounded my-1 p-1 mySize20"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            // required
+          />
+          <ShowError errorKey="PhoneNumber" error={error} />
+          <input
+            type="password"
+            placeholder="Ваш пароль"
+            className="w-75 border-0 myGrey rounded my-1 p-1 mySize20"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            // required
+          />
+          <ShowError errorKey="Password" error={error} />
+          <div>
+            <button
+              type="submit"
+              className="w-75 rounded-4 mySize20 myLightBlue text-white p-2 border-0 m-2"
+            >
+              Создать
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+
+==================================================
+app\views\feedback\create.tsx:
+==================================================
+import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router";
+import feedback, { type FeedbackValidation } from "~/api/feedback";
+import ShowError from "~/components/showError";
+
+export default function CreateFeedback() {
+  const [message, setMessage] = useState<string>("");
+  const [rating, setRating] = useState<number>(0);
+  const [error, setError] = useState<FeedbackValidation | null>(null);
+  const navigation = useNavigate();
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const result = await feedback.create({
+      Comment: message,
+      Rating: String(rating),
+    });
+
+    if (result.status === 201) {
+      navigation("/profile");
+      return;
+    }
+    setError(result.error as unknown as FeedbackValidation);
+  };
+
+  return (
+    <section className="mx-4 catalog profile">
+      <a href="/">
+        <img src="/img/arrow-left.png" alt="Назад" className="my-2 myImgArrow" />
+      </a>
+      <div className="text-center">
+        <h1>Оставить отзыв</h1>
+      </div>
+      <div className="myInfoCard catalog addProduct d-flex align-items-center justify-content-center">
+        <div className="mb-3 w-100" style={{ maxWidth: "500px" }}>
+          <form onSubmit={handleSubmit}>
+            <div className="mb-3">
+              <div className="d-flex justify-content-center gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <span
+                    key={star}
+                    onClick={() => setRating(star)}
+                    style={{
+                      cursor: "pointer",
+                      fontSize: "2rem",
+                      color: star <= rating ? "orange" : "#ccc",
+                    }}
+                  >
+                    &#9733;
+                  </span>
+                ))}
+              </div>
+              <ShowError errorKey="Rating" error={error} />
+            </div>
+
+            <div className="mb-3">
+              <textarea
+                name="message"
+                placeholder="Комментарий"
+                rows={6}
+                className="border-0 rounded-4 backColorGre1 w-100 px-3 py-2"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+              />
+              <ShowError errorKey="Comment" error={error} />
+            </div>
+
+            <div className="d-flex justify-content-center">
+              <button type="submit" className="w-50 myButton rounded-4 myBlue text-white p-2">
+                Отправить
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+==================================================
+app\views\feedback\index.tsx:
+==================================================
+import type { Route } from "./+types/index";
+import feedback from "~/api/feedback";
+import AdaptivePaginator from "~/components/AdaptivePaginator";
+import Loader from "~/components/Loader";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router";
+import default_image_url from "~/constants/image";
+import FeedbackCard from "~/components/FeedbackCard";
+
+export async function clientLoader({ request }: Route.LoaderArgs) {
+  const url = new URL(request.url);
+  const page = parseInt(url.searchParams.get("page") || "1");
+  const feedbacks = await feedback.getAllWithPaginate(page);
+  return feedbacks;
+}
+
+export default function CommentsView({ loaderData }: Route.ComponentProps) {
+  const [feedbacks, setFeedbacks] = useState(loaderData);
+  const [load, setLoad] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  const getData = async () => {
+    const page = searchParams.get("page") || "1";
+
+    feedback.getAllWithPaginate(parseInt(page)).then((result) => {
+      setFeedbacks(result);
+      setLoad(false);
+    });
+  };
+  useEffect(() => {
+    setLoad(true);
+    getData();
+  }, [searchParams]);
+
+  if (load) {
+    return <Loader />;
+  }
+
+  const destroyFeedback = async (idFeedback: string) => {
+    const result = await feedback.destroy(String(idFeedback));
+    getData();
+  };
+
+  const callbacks = {
+    delete: destroyFeedback,
+  };
+
+  return (
+    <div className="reviews content">
+      <section className="m-5 reviews">
+        <h1>Отзывы наших клиентов</h1>
+        <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4 my-3">
+          {feedbacks?.items.map((item) => (
+            <FeedbackCard props={item} key={item.id} callbacks={callbacks} />
+          ))}
+        </div>
+
+        {feedbacks && feedbacks.pageCount > 1 && (
+          <div className="d-flex justify-content-center mt-5">
+            <AdaptivePaginator
+              page={feedbacks.page}
+              pageCount={feedbacks.pageCount}
+            />
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+
+==================================================
+app\views\products\buy_page.tsx:
+==================================================
+import { useState } from "react";
+import { useNavigate } from "react-router";
+import { Modal, Button } from "react-bootstrap";
+
+const BuyPage: React.FC = () => {
+  const [show, setShow] = useState(false);
+  const navigate = useNavigate();
+  const buy = () => {};
+
+  return (
+    <section className="mx-4 myInfoCard catalog content">
+      <Modal show={show} onHide={() => setShow(false)} centered>
+        <Modal.Header closeButton className="d-flex justify-content-center mySearh">
+          <img src="img/checkMark.png" alt="" />
+        </Modal.Header>
+        <Modal.Body className="text-center catalog">
+          <h1 className="myA">Успешно</h1>
+          <p className="px-5 opacity-75">
+            В ближайшее время вам позвонят для подтверждения заказа
+          </p>
+        </Modal.Body>
+        <Modal.Footer className="d-flex justify-content-center mySearh">
+          <Button
+            variant=""
+            className="myButton rounded-4 myLightBlue text-white p-2 border-0"
+            onClick={() => navigate("/")}
+          >
+            Вернуться
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <div className="mb-3">
+        <div className="card-body text-center">
+          <div className="m-5">
+            <img
+              src="img/Group 19.png"
+              className="card-img-top w-50"
+              alt="..."
+            />
+          </div>
+          <h3>Cheeseburger Wendy's Burger</h3>
+          <h3>Исполнитель</h3>
+          <h3>Номер телефона</h3>
+          <h3>Адресс</h3>
+          <h3>Цена</h3>
+          <div>
+            <textarea
+              name=""
+              id=""
+              className="w-75 rounded-2 myGrey m-2 border-0"
+              placeholder="Вы хотите добавить комментарий к вашему заказу?"
+              rows={7}
+            />
+          </div>
+          <div className="d-flex m-2 justify-content-evenly">
+            <button
+              onClick={(e) => navigate(-1)}
+              className="w-25 myButton rounded-4 myGrey text-black p-2 border-0"
+            >
+              отмена
+            </button>
+            <button
+              type="button"
+              className="w-25 myButton rounded-4 myLightBlue text-white p-2 border-0"
+              onClick={() => setShow(true)}
+            >
+              оформить
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default BuyPage;
+
+
+==================================================
+app\views\products\create.tsx:
+==================================================
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useNavigate } from "react-router";
+import type { ProductUpdateValidation } from "~/api/product";
+import product from "~/api/product";
+import ShowError from "~/components/showError";
+import ypk from "~/api/ypk";
+import status_product from "~/api/status_product";
+import type { Route } from "./+types/create";
+
+export async function clientLoader() {
+  const ypks = await ypk.getAll();
+  const _status = await status_product.getAll();
+  return { ypks, _status };
+}
+
+export default function CreateProduct({ loaderData }: Route.ComponentProps) {
+  const { ypks, _status } = loaderData;
+  const [name, setName] = useState<string>("");
+  const [address, setAddress] = useState<string>("");
+  const [type, setType] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
+  const [image, setImage] = useState<File | null>(null);
+  const [status, setStatus] = useState<string>("");
+  const [isProduct, setIsProduct] = useState(true);
+  const [cost, setCost] = useState<string>("");
+  const navigation = useNavigate();
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [error, setError] = useState<ProductUpdateValidation | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImage(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const result = await product.create({
+      Address: address,
+      IsProduct: isProduct,
+      Photo: image,
+      ProductCost: parseInt(cost),
+      ProductInfo: description,
+      ProductName: name,
+      StatusProductId: status,
+      YpkId: type,
+    });
+
+    if (result.status == 200) {
+      navigation("/product/edit_page");
+      return;
+    }
+    setError(result.error as unknown as ProductUpdateValidation);
+  };
+
+  return (
+    <section className="mx-4">
+      <a href="/">
+        <img
+          src="/img/arrow-left.png"
+          alt="Назад"
+          className="my-2 myImgArrow"
+        />
+      </a>
+      <div className="text-center">
+        <h1>Добавить новое</h1>
+      </div>
+      <div className="myInfoCard catalog addProduct d-flex align-items-center justify-content-center">
+        <div className="mb-3">
+          <div className="newTovar">
+            <div className="card-body text-center">
+              <form onSubmit={handleSubmit} encType="multipart/form-data">
+                <div
+                  className="m-3 newFoto rounded-5 bg-secondary d-flex justify-content-center align-items-center"
+                  style={{
+                    overflow: "hidden",
+                    aspectRatio: "1 / 1",
+                    cursor: "pointer",
+                  }}
+                  onClick={handleImageClick}
+                >
+                  <img
+                    src={
+                      previewUrl || "/img/material-symbols_add-a-photo-outline-sharp.png"
+                    }
+                    style={{
+                      width: previewUrl ? "100%" : "25%",
+                      height: previewUrl ? "100%" : "auto",
+                      objectFit: previewUrl ? "cover" : "contain",
+                    }}
+                    alt="Изображение товара"
+                  />
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  name="image"
+                  accept="image/*"
+                  hidden
+                  id="photoInput"
+                  onChange={handleImageChange}
+                />
+
+                <div className="my-5">
+                  <div className="mb-3">
+                    <input
+                      type="text"
+                      name="name"
+                      placeholder="Название"
+                      className="border-0 rounded-4 backColorGre1 w-100 px-3"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                    <ShowError errorKey="ProductName" error={error} />
+                  </div>
+
+                  <div className="mb-3">
+                    <input
+                      type="tel"
+                      name="phone"
+                      placeholder="Номер телефона для связи"
+                      className="border-0 rounded-4 backColorGre1 w-100 px-3"
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <input
+                      type="text"
+                      name="address"
+                      placeholder="Адрес"
+                      className="border-0 rounded-4 backColorGre1 w-100 px-3"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                    />
+                    <ShowError errorKey="Address" error={error} />
+                  </div>
+
+                  <div className="mb-3">
+                    <select
+                      name="type"
+                      className="border-0 rounded-4 backColorGre1 w-100 px-3 text-muted"
+                      value={type}
+                      onChange={(e) => setType(e.target.value)}
+                    >
+                      <option value="">Тип: выпадающий список</option>
+                      {ypks?.ypks.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.ypkName}
+                        </option>
+                      ))}
+                    </select>
+                    <ShowError errorKey="YpkId" error={error} />
+                  </div>
+
+                  <div className="mb-3">
+                    <select
+                      name="status"
+                      className="border-0 rounded-4 backColorGre1 w-100 px-3 text-muted"
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                    >
+                      <option value="">Статус: выпадающий список</option>
+                      {_status?.statusProducts.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.statusName}
+                        </option>
+                      ))}
+                    </select>
+                    <ShowError errorKey="StatusProductId" error={error} />
+                  </div>
+
+                  <div className="mb-3">
+                    <textarea
+                      name="description"
+                      placeholder="Доп инфа"
+                      rows={3}
+                      className="border-0 rounded-4 backColorGre1 w-100 px-3"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <input
+                      type="number"
+                      name="cost"
+                      placeholder="Цена"
+                      className="border-0 rounded-4 backColorGre1 w-100 px-3"
+                      value={cost}
+                      onChange={(e) => setCost(e.target.value)}
+                    />
+                    <ShowError errorKey="Cost" error={error} />
+                  </div>
+
+                  <div className="mb-4 d-flex justify-content-around gap-4">
+                    <div className="form-check">
+                      <input
+                        className="form-check-input"
+                        type="radio"
+                        name="offerType"
+                        id="service"
+                        value="service"
+                        checked={isProduct === false}
+                        onChange={() => setIsProduct(false)}
+                      />
+                      <label className="form-check-label text-muted" htmlFor="service">
+                        Услуга
+                      </label>
+                    </div>
+                    <div className="form-check">
+                      <input
+                        className="form-check-input"
+                        type="radio"
+                        name="offerType"
+                        id="product"
+                        value="product"
+                        checked={isProduct === true}
+                        onChange={() => setIsProduct(true)}
+                      />
+                      <label className="form-check-label text-muted" htmlFor="product">
+                        Товар
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <button type="submit" className="w-50 myButton rounded-4 myBlue text-white p-2">
+                  Сохранить
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+==================================================
+app\views\products\edit.tsx:
+==================================================
+import { useState, useRef, type ChangeEvent, type FormEvent } from "react";
+import product, { type ProductUpdateValidation } from "~/api/product";
+import type { Route } from "./+types/edit";
+import default_image_url from "~/constants/image";
+import ypk from "~/api/ypk";
+import status_product from "~/api/status_product";
+import { useNavigate } from "react-router";
+import ShowError from "~/components/showError";
+
+export async function clientLoader({ params }: Route.LoaderArgs) {
+  const myproduct = await product.getById(params.id);
+  const ypks = await ypk.getAll();
+  const _status = await status_product.getAll();
+  return { myproduct, ypks, _status };
+}
+const EditProduct = ({ loaderData }: Route.ComponentProps) => {
+  const { myproduct, ypks, _status } = loaderData;
+  const [name, setName] = useState<string>(myproduct!.productName);
+  const [address, setAddress] = useState<string>(myproduct!.address);
+  const [type, setType] = useState<string>(myproduct!.ypkId);
+  const [description, setDescription] = useState<string>(
+    myproduct!.productInfo,
+  );
+  const [image, setImage] = useState<File | null>(null);
+  const [status, setStatus] = useState<string>(myproduct!.statusProductId);
+  const [isProduct, setIsProduct] = useState(myproduct!.isProduct);
+  const [cost, setCost] = useState(String(myproduct!.productCost));
+  const navigation = useNavigate();
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+
+  const [error, setError] = useState<ProductUpdateValidation | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImage(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const result = await product.updateProduct({
+      address,
+      id: myproduct!.id,
+      isProduct,
+      photo: image,
+      productCost: parseInt(cost),
+      productInfo: description,
+      productName: name,
+      statusProductId: status,
+      ypkId: type,
+    });
+
+    if (result.status == 204) {
+      navigation("/product/edit_page");
+      return;
+    }
+    setError(result.error as unknown as ProductUpdateValidation);
+  };
+
+  return (
+    <section className="mx-4">
+      <a href="userProfile.html">
+        <img
+          src="/img/arrow-left.png"
+          alt="Назад"
+          className="my-2 myImgArrow"
+        />
+      </a>
+      <div className="text-center">
+        <h1>Редактировать</h1>
+      </div>
+      <div className="myInfoCard catalog addProduct d-flex align-items-center justify-content-center">
+        <div className="mb-3">
+          <div className="newTovar">
+            <div className="card-body text-center">
+              <form onSubmit={handleSubmit} encType="multipart/form-data">
+                <div
+                  className="m-3 newFoto rounded-5 bg-secondary d-flex justify-content-center align-items-center"
+                  style={{
+                    overflow: "hidden",
+                    aspectRatio: "1 / 1",
+                    cursor: "pointer",
+                  }}
+                  onClick={handleImageClick}
+                >
+                  <img
+                    src={
+                      // image ? URL.createObjectURL(image) :
+                      previewUrl || myproduct?.photoUrl || default_image_url
+                    }
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                    alt="Изображение товара"
+                  />
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  name="image"
+                  accept="image/*"
+                  hidden
+                  id="photoInput"
+                  onChange={handleImageChange}
+                />
+
+                <div className="my-5">
+                  <div className="mb-3">
+                    <input
+                      type="text"
+                      placeholder="Название"
+                      className="border-0 rounded-4 backColorGre1 w-100 px-3"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <input
+                      type="text"
+                      placeholder="Адрес"
+                      className="border-0 rounded-4 backColorGre1 w-100 px-3"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <select
+                      className="border-0 rounded-4 backColorGre1 w-100 px-3 text-muted"
+                      value={type}
+                      onChange={(e) => setType(e.target.value)}
+                    >
+                      <option value="">Тип: выпадающий список</option>
+                      {ypks?.ypks.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.ypkName}
+                        </option>
+                      ))}
+                    </select>
+                    <ShowError errorKey="YpkId" error={error} />
+                  </div>
+
+                  <div className="mb-3">
+                    <select
+                      className="border-0 rounded-4 backColorGre1 w-100 px-3 text-muted"
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                    >
+                      <option value="">Тип: выпадающий список</option>
+                      {_status?.statusProducts.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.statusName}
+                        </option>
+                      ))}
+                    </select>
+                    <ShowError errorKey="StatusProductId" error={error} />
+                  </div>
+
+                  <div className="mb-3">
+                    <textarea
+                      placeholder="Доп инфа"
+                      rows={3}
+                      className="border-0 rounded-4 backColorGre1 w-100 px-3"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <input
+                      type="number"
+                      placeholder="Цена"
+                      className="border-0 rounded-4 backColorGre1 w-100 px-3"
+                      value={cost}
+                      onChange={(e) => setCost(e.target.value)}
+                    />
+                    <ShowError errorKey="Cost" error={error} />
+                  </div>
+                  <div className="mb-4 d-flex justify-content-around gap-4">
+                    <div className="form-check">
+                      <input
+                        className="form-check-input"
+                        type="radio"
+                        id="service"
+                        value="service"
+                        checked={isProduct === false}
+                        onChange={() => setIsProduct(false)}
+                      />
+                      <label
+                        className="form-check-label text-muted"
+                        htmlFor="service"
+                      >
+                        Услуга
+                      </label>
+                    </div>
+                    <div className="form-check">
+                      <input
+                        className="form-check-input"
+                        type="radio"
+                        id="product"
+                        value="product"
+                        checked={isProduct === true}
+                        onChange={() => setIsProduct(true)}
+                      />
+                      <label
+                        className="form-check-label text-muted"
+                        htmlFor="product"
+                      >
+                        Товар
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-50 myButton rounded-4 myBlue text-white p-2"
+                >
+                  Сохранить
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default EditProduct;
+
+
+==================================================
+app\views\products\edit_page.tsx:
+==================================================
+import product from "~/api/product";
+import type { Route } from "./+types/edit_page";
+import default_image_url from "~/constants/image";
+import AdaptivePaginator from "~/components/AdaptivePaginator";
+import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "react-router";
+import Loader from "~/components/Loader";
+import { Link } from "react-router";
+import SubmitModalWindow from "~/components/SubmitModalWindow";
+
+export async function clientLoader({ request }: Route.LoaderArgs) {
+  const url = new URL(request.url);
+  const page = parseInt(url.searchParams.get("page") || "1");
+  const products = await product.getWithPaginate(page);
+  return products;
+}
+
+export default function EditProductPage({ loaderData }: Route.ComponentProps) {
+  const [products, setProducts] = useState(loaderData);
+  const [searchText, setSearchText] = useState("");
+  const [searchParams] = useSearchParams();
+  const [load, setLoad] = useState(true);
+  const [show, setShow] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+
+  const hasSearch = searchText.trim() !== "";
+
+  const fetchProducts = useCallback(async () => {
+    setLoad(true);
+    try {
+      const page = searchParams.get("page") || "1";
+
+      if (hasSearch) {
+        const result = await product.getBySearchTextWithPaginate(
+          searchText,
+          page,
+        );
+        setProducts(result);
+      } else {
+        setProducts(loaderData);
+      }
+    } catch {
+    } finally {
+      setLoad(false);
+    }
+  }, [searchText, hasSearch, searchParams]);
+
+  const destroyProduct = async (idProduct: string) => {
+    const result = await product.destroy(idProduct);
+    if (result.status == 204) {
+      setShow(false);
+      setSelectedProductId(null);
+      fetchProducts();
+    }
+  };
+
+  const handleDeleteClick = (idProduct: string) => {
+    setSelectedProductId(idProduct);
+    setShow(true);
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchProducts();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [fetchProducts]);
+
+  useEffect(() => {
+    if (!hasSearch) {
+      setProducts(loaderData);
+    }
+  }, [loaderData]);
+
+  if (load) {
+    return <Loader />;
+  }
+  return (
+    <>
+      <SubmitModalWindow
+        show={show}
+        handleClose={() => {
+          setShow(false);
+          setSelectedProductId(null);
+        }}
+        success={() => selectedProductId && destroyProduct(selectedProductId)}
+      />
+      <div className="mx-5">
+        <a href="/">
+          <img
+            src="/img/arrow-left.png"
+            alt="Назад"
+            className="my-2 myImgArrow"
+          />
+        </a>
+      </div>
+
+      <div className="catalog content">
+        <section className="m-5 catalog text-center">
+          <h1>Редактировать услуги и товары</h1>
+
+          <div className="my-3">
+            <input
+              className="form-control"
+              type="search"
+              placeholder="Поиск по названию, описанию, цене..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              style={{ height: "60px" }}
+            />
+          </div>
+
+          {products && products.items.length > 0 ? (
+            <>
+              <div className="row row-cols-1 row-cols-2 row-cols-sm-2 row-cols-md-3 g-4 my-3">
+                {products.items.map((item) => (
+                  <div className="col d-flex" key={item.id}>
+                    <div className="rounded shadow p-3 w-100">
+                      <img
+                        src={item.photoUrl || default_image_url}
+                        className="card-img-top"
+                        alt={item.photoUrl}
+                      />
+                      <div className="card-body catalog">
+                        <h3 className="card-title">{item.productName}</h3>
+                        <h5>Тип: {item.isProduct ? "Продукт" : "Услуга"}</h5>
+                        {/* <h5>{item.ypkId}</h5> */}
+                        <h4>Цена: {item.productCost} Р</h4>
+                        <p>Описание: {item.productInfo.slice(0,10).concat("...")}</p>
+
+                        <Link
+                          to={`/product/${item.id}/edit`}
+                          type="button"
+                          className="my-3 sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100 text-decoration-none"
+                        >
+                          <span>Редактировать</span>
+                        </Link>
+
+                        <button
+                          type="button"
+                          className="my-3 sign-out d-flex bg-danger border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
+                          onClick={() => handleDeleteClick(item.id)}
+                        >
+                          <span>Удалить</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flexCenter">
+                <AdaptivePaginator
+                  page={products.page}
+                  pageCount={products.pageCount}
+                />
+              </div>
+            </>
+          ) : (
+            <p className="text-center">Продукты не найдены</p>
+          )}
+        </section>
+      </div>
+    </>
+  );
+}
+
+==================================================
+app\views\products\show.tsx:
+==================================================
+import { Link, useLoaderData, useNavigate, useParams } from "react-router";
+import product, { type ProductResponse } from "../../api/product";
+import { useEffect, useState } from "react";
+import default_image_url from "../../constants/image";
+import { LoaderOverlay } from "../../components/Loader";
+import type { Route } from "./+types/show";
+// import type { Route } from ";
+
+
+export async function loader({params}: Route.LoaderArgs) {
+  const result = await product.getById(params.id);
+  return result;
+}
+const ProductShow: React.FC = () => {
+  const myproduct = useLoaderData<typeof loader>();
+  const navigate = useNavigate();
+
+  return (
+    <section className="mx-4 myInfoCard catalog content">
+      <div>
+        <img
+          src="img/arrow-left.png"  
+          alt="Назад"
+          className="my-2 myImgArrow cursor-pointer"
+          onClick={(e) => navigate(-1)}
+        />
+        <div className="mb-3">
+          <div className="card-body text-center">
+            <div className="m-5">
+              <img
+                src={myproduct?.photoUrl || default_image_url}
+                className="card-img-top w-50"
+                alt="Изображение товара"
+              />
+            </div>
+            <h3>{myproduct?.productName}</h3>
+            {/* <h3>Исполнитель</h3> */}
+            {/* <h3>Номер телефона</h3> */}
+            <h3>Адрес: {myproduct?.address}</h3>
+            <h3>Цена: {myproduct?.productCost}</h3>
+            <p>{myproduct?.productInfo}</p>
+            <a href="Rate_shop.html">
+              <button
+                className="w-50 myButton rounded-4 myBlue text-white p-2"
+                onClick={(e) => navigate("/buy_page")}
+              >
+                Заказать
+              </button>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default ProductShow;
+
+
+==================================================
+app\views\profile\edit.tsx:
+==================================================
+import {
+  useEffect,
+  useState,
+  useRef,
+  type FormEvent,
+  type ChangeEvent,
+} from "react";
+import { useNavigate } from "react-router";
+import type { UserData } from "~/api/auth";
+import user, { type UserUpdateValidate } from "~/api/user";
+import Loader from "~/components/Loader";
+import ShowError from "~/components/showError";
+import default_image_url from "~/constants/image";
+
+export async function loader() {
+  return null;
+}
+export default function EditProfile() {
+  const [myuser, setUser] = useState<UserData | null>(null);
+  const [load, setLoad] = useState(true);
+  const [name, setName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [userInfo, setUserInfo] = useState("");
+  const [image, setImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigation = useNavigate();
+  const [error, setError] = useState<UserUpdateValidate | null>(null);
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImage(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const getData = async () => {
+    try {
+      const result = await user.getFullInfo();
+      const _user = result.data;
+
+      if (_user) {
+        setUser(_user);
+        setName(_user.name);
+        setPhoneNumber(_user.phoneNumber);
+        setUserInfo(_user.userInfo || "");
+      }
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoad(false);
+    }
+  };
+
+  useEffect(() => {
+    getData();
+  }, []);
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const result = await user.updateUserInfo({
+      Fullname: name,
+      PhoneNumber: phoneNumber,
+      UserInfo: userInfo,
+      Avatar: image || undefined,
+    });
+    if (result.status == 204) {
+      navigation("/profile");
+      return;
+    }
+
+    setError(result.error as unknown as UserUpdateValidate);
+  };
+  if (load) return <Loader />;
+
+  return (
+    <section className="catalog profile">
+      <form className="m-3" onSubmit={submit} encType="multipart/form-data">
+        <div className="d-flex align-items-center justify-content-between">
+          <label onClick={() => fileInputRef.current?.click()}>
+            <img
+              src={previewUrl || myuser?.avatarUrl || default_image_url}
+              className="avatar"
+              alt="avatar"
+            />
+          </label>
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            id="pick-image"
+            accept="image/*"
+            onChange={handleImageChange}
+          />
+          <div className="mx-3" style={{ flex: 1 }}>
+            <h5>
+              <b>Фио: </b>
+              <input
+                type="text"
+                name="name"
+                className="border-0 w-100"
+                placeholder="введите свое Фио"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </h5>
+            <ShowError errorKey="Fullname" error={error} />
+
+            <hr style={{ width: "100%", margin: 0 }} />
+            <p>
+              <b>Номер телефона: </b>
+              <input
+                type="tel"
+                name="phone"
+                className="border-0 w-100"
+                placeholder="введите свой номер телефона"
+                // inputMode="numeric"
+                // pattern="[0-9+\-\s]+"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+              />
+              <ShowError errorKey="PhoneNumber" error={error} />
+            </p>
+
+            <hr style={{ width: "100%", margin: 0 }} />
+            <p>
+              <b>Доп информация: </b>
+              <input
+                type="text"
+                name="info"
+                className="border-0 w-100"
+                placeholder="введите информацию"
+                value={userInfo}
+                onChange={(e) => setUserInfo(e.target.value)}
+              />
+            </p>
+            <hr style={{ width: "100%", margin: 0 }} />
+          </div>
+        </div>
+        <div className="d-flex justify-content-between m-3 align-items-center">
+          <div className="d-flex">
+            <button
+              type="submit"
+              className="sign-out d-flex edit justify-content-evenly align-items-center gap-2 p-2 text-white"
+            >
+              <span>Сохранить</span>
+              <img src="/img/edit.png" alt="" className="profileButton" />
+            </button>
+          </div>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+
+==================================================
+app\views\profile\index.tsx:
+==================================================
+import { useNavigate, redirect, Link } from "react-router";
+import type { Route } from "./+types/index";
+// import { protectedMiddleware } from "~/middleware/protectedMiddleware";
+import { useContext, useEffect, useState } from "react";
+import UserContext from "~/context/UserContext";
+import default_image_url from "~/constants/image";
+import user from "~/api/user";
+import type { UserData } from "~/api/auth";
+import Loader from "~/components/Loader";
+import { protectedMiddleware } from "~/middleware/protectedMiddleware";
+import NewTypeForm from "~/components/forms/newTypeForm";
+import DeleteTypeForm from "~/components/forms/deleteTypeForm";
+import ypk, { type YpkResponse } from "~/api/ypk";
+
+export const middleware: Route.MiddlewareFunction[] = [protectedMiddleware];
+
+// export async function loader() {
+//   const currentUser = await user.getFullInfo();
+//   return currentUser.data;
+//   // return null;
+// }
+
+// export async function clientLoader() {
+//   const ypks = await ypk.getAll();
+//   return ypks
+// }
+
+const ProfileView = () => {
+  const [ypks, setYpk] = useState<YpkResponse | null>();
+  const [currentUser, setUser] = useState<UserData | undefined>(undefined);
+  const { user: myUser } = useContext(UserContext);
+  const [load, setLoad] = useState(true);
+  const [selectType, setSelectType] = useState();
+  const navigation = useNavigate();
+
+  const getUser = async () => {
+    const newUser = await user.getFullInfo();
+    if (newUser.data) setUser(newUser.data);
+  };
+  const getYpk = async () => {
+    const ypks = await ypk.getAll();
+    if (ypks) setYpk(ypks);
+  };
+  const getData = async () => {
+    try {
+      await Promise.all([getUser(), getYpk()]);
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoad(false);
+    }
+  };
+ 
+  useEffect(() => {
+    getData();
+  }, []);
+
+  if (load || !currentUser) {
+    return <Loader />;
+  }
+  return (
+    <section className="catalog profile">
+      <div className="m-3">
+        <h2>Ваши данные</h2>
+
+        <div className="d-flex align-items-center justify-content-between">
+          <img
+            src={currentUser?.avatarUrl || default_image_url}
+            className="avatar"
+            alt="..."
+          />
+
+          <div className="mx-3" style={{ flex: 1 }}>
+            <h5>
+              <b>Фио: </b>
+              {currentUser.name}
+            </h5>
+            <hr style={{ width: "100%", margin: 0 }} />
+            <p>
+              <b>Номер телефона: </b>
+              {currentUser.phoneNumber}
+            </p>
+            <hr style={{ width: "100%", margin: 0 }} />
+            <p>
+              <b>Доп информация: </b>
+              {currentUser?.userInfo || <i>Отсуствует</i>}
+            </p>
+            <hr style={{ width: "100%", margin: 0 }} />
+          </div>
+        </div>
+        <div className="container-fluid px-2 px-md-3">
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 my-3">
+            <div className="d-flex flex-wrap justify-content-center justify-content-md-start gap-2 gap-md-3">
+              <Link
+                to={"/profile/edit"}
+                className="text-decoration-none flex-grow-1 flex-md-grow-0"
+              >
+                <div className="sign-out d-flex edit justify-content-center align-items-center gap-2 p-2 text-white w-100">
+                  <span>Редактировать</span>
+                  <img
+                    src="img/edit.png"
+                    alt=""
+                    className="profileButton"
+                    style={{ width: 16, height: 16 }}
+                  />
+                </div>
+              </Link>
+              {/* ======================= Исполнитель кнопки======================= */}
+              <Link
+                // href="addProduct.html"
+                to={"/product/create"}
+                className="text-decoration-none flex-grow-1 flex-md-grow-0"
+              >
+                <button
+                  type="button"
+                  className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
+                >
+                  <span>Добавить товары/услуги</span>
+                </button>
+              </Link>
+              {/* ======================= Админ кнопки ======================= */}
+              {myUser?.role == "Admin" && (
+                <>
+                  <Link
+                    to={"/product/edit_page"}
+                    className="text-decoration-none flex-grow-1 flex-md-grow-0"
+                  >
+                    <button
+                      type="button"
+                      // onClick={() => navigation(`/product/edit_page`)}
+                      className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
+                    >
+                      <span>Редактировать товары/услуги</span>
+                    </button>
+                  </Link>
+                  <Link
+                    to={"/user"}
+                    className="text-decoration-none flex-grow-1 flex-md-grow-0"
+                  >
+                    <button
+                      type="button"
+                      className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
+                    >
+                      <span>Управление пользователями</span>
+                    </button>
+                  </Link>
+                  <Link
+                    to="#"
+                    className="text-decoration-none flex-grow-1 flex-md-grow-0"
+                  >
+                    <button
+                      type="button"
+                      className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
+                    >
+                      <span>Управление заказами</span>
+                    </button>
+                  </Link>
+                </>
+              )}
+
+              <Link
+                to={"/feedback/create"}
+                className="text-decoration-none flex-grow-1 flex-md-grow-0"
+              >
+                <button
+                  type="button"
+                  className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
+                >
+                  <span>Оставить отзыв</span>
+                </button>
+              </Link>
+            </div>
+            <div className="flex-shrink-0">
+              <button
+                type="button"
+                className="sign-out d-flex btn btn-outline-danger justify-content-center align-items-center gap-2 w-100 w-md-auto"
+              >
+                <span>Выйти из аккаунта</span>
+                <img
+                  src="img/sign-out.png"
+                  alt=""
+                  className="profileButton"
+                  style={{ width: 16, height: 16 }}
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <section className="order">
+        <div className="myBlue rounded-3">
+          <h1 className="p-3 text-white nameBlock">Заказы</h1>
+        </div>
+        <div className="row row-cols-1 row-cols-2 row-cols-sm-2 row-cols-md-3 g-4 my-3">
+          <div className="col d-flex">
+            <Link to="#" className="text-decoration-none text-black">
+              <div className="rounded shadow p-3 w-100">
+                <img
+                  src="img/Group 19.png"
+                  className="card-img-top"
+                  alt="..."
+                />
+                <div className="card-body catalog">
+                  <h3 className="card-title">Крутое название</h3>
+                  <h5>Исполнитель</h5>
+                  <h4>Цена</h4>
+                  <p>Дата</p>
+                  <p>Статус</p>
+                  <p>Телефон</p>
+                </div>
+              </div>
+            </Link>
+          </div>
+          <div className="col d-flex">
+            <div className="rounded shadow p-3 w-100">
+              <img src="..." className="card-img-top" alt="..." />
+              <div className="card-body">
+                <h5 className="card-title">Card title</h5>
+                <p className="card-text">
+                  Это более длинная карточка с поддерживающим текстом ниже, как
+                  естественное введение в дополнительный контент.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="col d-flex">
+            <div className="rounded shadow p-3 w-100">
+              <img src="..." className="card-img-top" alt="..." />
+              <div className="card-body">
+                <h5 className="card-title">Card title</h5>
+                <p className="card-text">
+                  Это более длинная карточка с поддерживающим текстом ниже.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="col d-flex">
+            <div className="rounded shadow p-3 w-100">
+              <img src="..." className="card-img-top" alt="..." />
+              <div className="card-body">
+                <h5 className="card-title">Card title</h5>
+                <p className="card-text">
+                  Это более длинная карточка с поддерживающим текстом ниже, как
+                  естественное введение в дополнительный контент.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section>
+        <div className="myBlue rounded-3">
+          <h1 className="p-3 text-white nameBlock">Ваши товары и услуги</h1>
+        </div>
+        <div className="row row-cols-1 row-cols-2 row-cols-sm-2 row-cols-md-3 g-4 my-3">
+          <div className="col d-flex">
+            <Link to="#" className="text-decoration-none text-black">
+              <div className="rounded shadow p-3 w-100">
+                <img
+                  src="img/Group 19.png"
+                  className="card-img-top"
+                  alt="..."
+                />
+                <div className="card-body catalog">
+                  <h3 className="card-title">Крутое название</h3>
+                  <h5>Исполнитель</h5>
+                  <h4>Цена</h4>
+                  <p>Дата</p>
+                  <p>Статус</p>
+                  <p>Телефон</p>
+                </div>
+                <button
+                  onClick={(e) => navigation("/edit_product")}
+                  type="button"
+                  className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
+                >
+                  <span>Редактировать</span>
+                </button>
+
+                <Link
+                  to="#"
+                  className="text-decoration-none flex-grow-1 flex-md-grow-0"
+                >
+                  <button
+                    type="button"
+                    className="my-3 sign-out d-flex bg-danger-subtle border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
+                  >
+                    <span>Скрыть</span>
+                  </button>
+                </Link>
+                <Link
+                  to="#"
+                  className="text-decoration-none flex-grow-1 flex-md-grow-0"
+                >
+                  <button
+                    type="button"
+                    className="my-3 sign-out d-flex bg-success-subtle border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100"
+                  >
+                    <span>Вернуть</span>
+                  </button>
+                </Link>
+              </div>
+            </Link>
+          </div>
+          <div className="col d-flex">
+            <div className="rounded shadow p-3 w-100">
+              <img src="..." className="card-img-top" alt="..." />
+              <div className="card-body">
+                <h5 className="card-title">Card title</h5>
+                <p className="card-text">
+                  Это более длинная карточка с поддерживающим текстом ниже, как
+                  естественное введение в дополнительный контент.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="col d-flex">
+            <div className="rounded shadow p-3 w-100">
+              <img src="..." className="card-img-top" alt="..." />
+              <div className="card-body">
+                <h5 className="card-title">Card title</h5>
+                <p className="card-text">
+                  Это более длинная карточка с поддерживающим текстом ниже.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="col d-flex">
+            <div className="rounded shadow p-3 w-100">
+              <img src="..." className="card-img-top" alt="..." />
+              <div className="card-body">
+                <h5 className="card-title">Card title</h5>
+                <p className="card-text">
+                  Это более длинная карточка с поддерживающим текстом ниже, как
+                  естественное введение в дополнительный контент.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      {myUser?.role == "Admin" && (
+        <>
+          <section>
+            <NewTypeForm onAdd={getData} />
+          </section>
+          <section>
+            <DeleteTypeForm ypks={ypks} onDelete={getData} />
+          </section>
+        </>
+      )}
+    </section>
+  );
+};
+
+export default ProfileView;
+
+
+==================================================
+app\views\profile\like.tsx:
+==================================================
+import { useNavigate } from "react-router";
+import type { Route } from "./+types/like";
+import { protectedMiddleware } from "~/middleware/protectedMiddleware";
+
+export const middleware: Route.MiddlewareFunction[] = [protectedMiddleware];
+
+export async function loader() {
+  return null;
+}
+
+const LiveView: React.FC = () => {
+    const navigation = useNavigate()
+    return (
+        <div className="catalog content">
+            <section className="m-5 catalog">
+                <h1>Избранное</h1>
+                <div className="row row-cols-1 row-cols-2 row-cols-sm-2 row-cols-md-3 g-4 my-3">
+                    <div className="col d-flex">
+                        <div className="rounded shadow p-3 w-100">
+                            <img src="img/Group 19.png" className="card-img-top" alt="..." />
+                            <div className="card-body catalog">
+                                <h3 className="card-title">Крутое название</h3>
+                                <h5>Исполнитель</h5>
+                                <h4>Цена</h4>
+                                <p>Крутое инфо Lorem ipsum dolor sit amet consectetur adipisicing elit. Expedita?</p>
+                            </div>
+                            <div className="d-flex align-items-center">
+                                <button onClick={e => navigation("/show")} type="button" className="mx-1 sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center p-2 text-white w-100">
+                                    <span>подробнее</span>
+                                </button>
+                                <form action="" className="m-0 p-0 d-inline-block lh-1">
+                                    <button type="button" className="border-0 bg-transparent p-0">
+                                        <img src="img/redHear.png" alt="" className="like" />
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="col d-flex">
+                        <div className="rounded shadow p-3 w-100">
+                            <img src="..." className="card-img-top" alt="..." />
+                            <div className="card-body">
+                                <h5 className="card-title">Card title</h5>
+                                <p className="card-text">Это более длинная карточка с поддерживающим текстом ниже, как естественное введение в дополнительный контент.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="col d-flex">
+                        <div className="rounded shadow p-3 w-100">
+                            <img src="..." className="card-img-top" alt="..." />
+                            <div className="card-body">
+                                <h5 className="card-title">Card title</h5>
+                                <p className="card-text">Это более длинная карточка с поддерживающим текстом ниже.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="col d-flex">
+                        <div className="rounded shadow p-3 w-100">
+                            <img src="..." className="card-img-top" alt="..." />
+                            <div className="card-body">
+                                <h5 className="card-title">Card title</h5>
+                                <p className="card-text">Это более длинная карточка с поддерживающим текстом ниже, как естественное введение в дополнительный контент.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    );
+};
+
+export default LiveView;
+
+
+==================================================
+app\views\user\index.tsx:
+==================================================
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router";
+import userManagement, { type UserDtoWithPagination, type RoleDto, type UserManagementValidation } from "~/api/user_management";
+import type { UserDto } from "~/api/feedback";
+import AdaptivePaginator from "~/components/AdaptivePaginator";
+import ShowError from "~/components/showError";
+import type { ChangeEvent } from "react";
+
+export default function UserPage() {
+  const [users, setUsers] = useState<UserDtoWithPagination | null>(null);
+  const [roles, setRoles] = useState<RoleDto[]>([]);
+  const [searchParams] = useSearchParams();
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserDto | null>(null);
+  const [createError, setCreateError] = useState<UserManagementValidation | null>(null);
+  const [editError, setEditError] = useState<UserManagementValidation | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [formData, setFormData] = useState({
+    fullname: "",
+    phoneNumber: "",
+    password: "",
+    roleId: "",
+  });
+
+  const [editFormData, setEditFormData] = useState({
+    fullname: "",
+    phoneNumber: "",
+    roleId: "",
+    isActive: true,
+    avatar: null as File | null,
+  });
+
+  const [editPreviewUrl, setEditPreviewUrl] = useState<string>("");
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+
+  const page = parseInt(searchParams.get("page") || "1");
+
+  useEffect(() => {
+    loadData(page);
+  }, [searchParams]);
+
+  const loadData = async (currentPage: number) => {
+    setIsLoading(true);
+    const [usersData, rolesData] = await Promise.all([
+      userManagement.getAllWithPaginate(currentPage),
+      userManagement.getAllRoles(),
+    ]);
+    setUsers(usersData);
+    setRoles(rolesData?.roles || []);
+    setIsLoading(false);
+  };
+
+  const handleCreateSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const result = await userManagement.create({
+      Fullname: formData.fullname,
+      PhoneNumber: formData.phoneNumber,
+      Password: formData.password,
+      RoleId: formData.roleId,
+    });
+
+    if (result.status === 200 || result.status === 201) {
+      setShowCreateModal(false);
+      setFormData({ fullname: "", phoneNumber: "", password: "", roleId: "" });
+      loadData(page);
+      return;
+    }
+    setCreateError(result.error as unknown as UserManagementValidation);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingUser) {
+      console.log("No editingUser");
+      return;
+    }
+
+    const payload = {
+      Id: editingUser.id,
+      Fullname: editFormData.fullname,
+      PhoneNumber: editFormData.phoneNumber,
+      RoleId: editFormData.roleId,
+      IsActive: editFormData.isActive,
+      Avatar: editFormData.avatar || undefined,
+    };
+    console.log("Edit submit payload:", payload);
+
+    const result = await userManagement.update(payload);
+    console.log("Edit submit result:", result);
+
+    if (result.status === 200 || result.status === 204) {
+      setShowEditModal(false);
+      setEditingUser(null);
+      loadData(page);
+      return;
+    }
+    setEditError(result.error as unknown as UserManagementValidation);
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (!confirm("Вы уверены, что хотите удалить этого пользователя?")) return;
+    await userManagement.deleteUser(id);
+    loadData(page);
+  };
+
+  const openEditModal = (user: UserDto) => {
+    setEditingUser(user);
+    setEditFormData({
+      fullname: user.fullname,
+      phoneNumber: user.phoneNumber,
+      roleId: user.role?.id || "",
+      isActive: user.isActive,
+      avatar: null,
+    });
+    setEditPreviewUrl(user.avatarUrl || "");
+    setShowEditModal(true);
+  };
+
+  const handleEditImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setEditFormData({ ...editFormData, avatar: file });
+      setEditPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleEditImageClick = () => {
+    editFileInputRef.current?.click();
+  };
+
+  const filteredUsers = users?.items;
+
+  return (
+    <div className="catalog content">
+      <section className="catalog">
+        <div className="text-center">
+          <h1>Редактировать роль пользователей</h1>
+        </div>
+
+        <div className="my-4 d-flex justify-content-end">
+          <button
+            className="btn btn-primary"
+            onClick={() => setShowCreateModal(true)}
+          >
+            Добавить пользователя
+          </button>
+        </div>
+
+        <div className="my-5 w-100">
+          {isLoading ? (
+            <div className="text-center">Загрузка...</div>
+          ) : (
+            filteredUsers?.map((user) => (
+              <div
+                key={user.id}
+                className="d-flex align-items-center justify-content-between my-3"
+              >
+                <img
+                  src={user.avatarUrl || "img/fotoUser.png"}
+                  className="avatar"
+                  alt={user.fullname}
+                />
+                <div className="mx-3" style={{ flex: 1 }}>
+                  <h5>
+                    <b>Фио: </b>
+                    {user.fullname}
+                  </h5>
+                  <hr style={{ width: "100%", margin: 0 }} />
+                  <p>
+                    <b>Номер телефона: </b>
+                    {user.phoneNumber}
+                  </p>
+                  <hr style={{ width: "100%", margin: 0 }} />
+                  <p>
+                    <b>Доп информация: </b>
+                    {user.userInfo || "Нет информации"}
+                  </p>
+                  <hr style={{ width: "100%", margin: 0 }} />
+
+                  <div className="d-flex align-items-center">
+                    <p className="me-2">Роль: {user.role.name}</p>
+                    {/* <div className="dropdown">
+                      <button
+                        className="btn btn-sm btn-outline-secondary dropdown-toggle"
+                        type="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                      >
+                        {user.role?.name || "Выберите роль"}
+                      </button>
+                      <ul className="dropdown-menu">
+                        {roles.map((role) => (
+                          <li key={role.id}>
+                            <a className="dropdown-item" href="#">
+                              {role.name}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div> */}
+                  </div>
+                  <hr style={{ width: "100%", margin: 0 }} />
+
+                  <div className="d-flex gap-2 mt-2">
+                    <button
+                      className="btn btn-sm btn-warning"
+                      onClick={() => openEditModal(user)}
+                    >
+                      Редактировать
+                    </button>
+                    <button
+                      className="btn btn-sm btn-danger"
+                      onClick={() => handleDeleteUser(user.id)}
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <AdaptivePaginator page={users?.page || 1} pageCount={users?.pageCount || 1} />
+      </section>
+
+      {showCreateModal && (
+        <div
+          className="modal show d-block"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+          onClick={() => setShowCreateModal(false)}
+        >
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Добавить пользователя</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowCreateModal(false)}
+                />
+              </div>
+              <form onSubmit={handleCreateSubmit}>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label className="form-label">ФИО</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={formData.fullname}
+                      onChange={(e) =>
+                        setFormData({ ...formData, fullname: e.target.value })
+                      }
+                      required
+                    />
+                    <ShowError errorKey="Fullname" error={createError} />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label">Номер телефона</label>
+                    <input
+                      type="tel"
+                      className="form-control"
+                      value={formData.phoneNumber}
+                      onChange={(e) =>
+                        setFormData({ ...formData, phoneNumber: e.target.value })
+                      }
+                      required
+                    />
+                    <ShowError errorKey="PhoneNumber" error={createError} />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label">Пароль</label>
+                    <input
+                      type="password"
+                      className="form-control"
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                      required
+                    />
+                    <ShowError errorKey="Password" error={createError} />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label">Роль</label>
+                    <select
+                      className="form-control"
+                      value={formData.roleId}
+                      onChange={(e) =>
+                        setFormData({ ...formData, roleId: e.target.value })
+                      }
+                      required
+                    >
+                      <option value="">Выберите роль</option>
+                      {roles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ShowError errorKey="RoleId" error={createError} />
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowCreateModal(false)}
+                  >
+                    Отмена
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Создать
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && editingUser && (
+        <div
+          className="modal show d-block"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+          onClick={() => setShowEditModal(false)}
+        >
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Редактировать пользователя</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowEditModal(false)}
+                />
+              </div>
+              <form onSubmit={handleEditSubmit}>
+                <div className="modal-body">
+                  <div className="mb-3 text-center">
+                    <div
+                      className="rounded-circle bg-secondary d-flex justify-content-center align-items-center mx-auto"
+                      style={{
+                        width: "100px",
+                        height: "100px",
+                        overflow: "hidden",
+                        cursor: "pointer",
+                      }}
+                      onClick={handleEditImageClick}
+                    >
+                      <img
+                        src={editPreviewUrl || editingUser?.avatarUrl || "img/fotoUser.png"}
+                        alt="Аватар"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    </div>
+                    <input
+                      ref={editFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={handleEditImageChange}
+                    />
+                    <small className="text-muted">Нажмите для смены аватара</small>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label">ФИО</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={editFormData.fullname}
+                      onChange={(e) =>
+                        setEditFormData({
+                          ...editFormData,
+                          fullname: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                    <ShowError errorKey="Fullname" error={editError} />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label">Номер телефона</label>
+                    <input
+                      type="tel"
+                      className="form-control"
+                      value={editFormData.phoneNumber}
+                      onChange={(e) =>
+                        setEditFormData({
+                          ...editFormData,
+                          phoneNumber: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                    <ShowError errorKey="PhoneNumber" error={editError} />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label">Роль</label>
+                    <select
+                      className="form-control"
+                      value={editFormData.roleId}
+                      onChange={(e) =>
+                        setEditFormData({
+                          ...editFormData,
+                          roleId: e.target.value,
+                        })
+                      }
+                      required
+                    >
+                      <option value="">Выберите роль</option>
+                      {roles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ShowError errorKey="RoleId" error={editError} />
+                  </div>
+
+                  <div className="mb-3 form-check">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      id="isActive"
+                      checked={editFormData.isActive}
+                      onChange={(e) =>
+                        setEditFormData({
+                          ...editFormData,
+                          isActive: e.target.checked,
+                        })
+                      }
+                    />
+                    <label className="form-check-label" htmlFor="isActive">
+                      Активен
+                    </label>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowEditModal(false)}
+                  >
+                    Отмена
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Сохранить
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+==================================================
+app\layouts\components\footer.tsx:
+==================================================
+export default function Footer() {
+    return (
+        //  <!-- подвал -->
+    <footer className="px-3">
+        <section className="d-flex justify-content-between catalog ">
+            <div className="d-flex">
+                <img src="img/logo.png" alt="" />
+                <div className="align-self-center">
+                    <img src="img/YPK.png" alt="" />  
+                </div>
+            </div>
+            <div className="align-self-center text-center text-white">
+                <p>номер телефон А: 89999999999</p>
+                <p>почта А: gmail@gmail.com</p>
+            </div>
+        </section>
+    </footer>
+    )
+}
+
+==================================================
+app\layouts\components\header.tsx:
+==================================================
+import { useContext, useState } from "react";
+import { Link } from "react-router";
+import { Navbar, Container, Offcanvas, Nav } from "react-bootstrap";
+import AuthContext from "~/context/AuthContext";
+import UserContext from "~/context/UserContext";
+import auth from "~/api/auth";
+
+export async function loader() {
+  return null;
+}
+
+export default function Header() {
+  const { user, setUser } = useContext(UserContext);
+  const { isAuth, setAuth } = useContext(AuthContext);
+  const [showOffcanvas, setShowOffcanvas] = useState(false);
+
+  const handleClose = () => setShowOffcanvas(false);
+  const handleShow = () => setShowOffcanvas(true);
+
+  const handleLogout = () => {
+    setUser(null);
+    setAuth(false);
+    window.location.href = "/";
+  };
+
+  const navLinks = [
+    { path: "/feedback", img: "/img/comment.png", label: "Комментарии", authRequired: false },
+    { path: "/profile", img: "/img/user.png", label: "Профиль", authRequired: true },
+    { path: "/like", img: "/img/heart.png", label: "Избранное", authRequired: true },
+    { path: "/login", img: "/img/user.png", label: "Войти", authRequired: false, isLogin: true }
+  ];
+
+  const filteredLinks = navLinks.filter(link => {
+    if (link.authRequired) return isAuth;
+    if (link.isLogin) return !isAuth;
+    return true;
+  });
+
+  return (
+    <section className="myColorHeader">
+      {user && <p className="mb-0 pt-2 text-center">Добро пожаловать {user.name}</p>}
+      
+      <Navbar expand="lg" className="navbar navbar-expand-lg d-flex justify-content-between align-items-center">
+        <Container fluid className="flex-nowrap">
+          <Navbar.Brand as={Link} to="/">
+            <img src="/img/logo.png" alt="Логотип" className="myImg" />
+          </Navbar.Brand>
+
+          <div className="mySearh flex-grow-1 mx-3">
+            <input
+              className="form-control"
+              type="search"
+              placeholder="Поиск"
+              aria-label="Поиск"
+            />
+          </div>
+
+          <Navbar.Toggle
+            aria-controls="offcanvasNavbar"
+            onClick={handleShow}
+            className="border-0"
+          >
+            <img src="/img/Group 2.png" alt="Меню" style={{ width: "30px" }} />
+          </Navbar.Toggle>
+
+          <div className="d-none d-lg-flex align-items-center">
+            <div className="myIcons">
+              <div className="d-flex me-3 myStyleTextLogo header-icons">
+                {filteredLinks.map((link, idx) => (
+                  <div key={idx} className="mx-1 text-center">
+                    <Link to={link.path} className="text-decoration-none" onClick={link.label === "Выйти" ? handleLogout : undefined}>
+                      <img className="header__image__size" src={link.img} alt={link.label} />
+                      <p className="header__button__text">{link.label}</p>
+                    </Link>
+                  </div>
+                ))}
+                {isAuth && (
+                  <div className="mx-1 text-center">
+                    <Link to="/" className="text-decoration-none" onClick={handleLogout}>
+                      <img className="header__image__size header__image-logout" src="/img/logout.png" alt="Выход" />
+                      <p className="header__button__text">Выйти</p>
+                    </Link>
+                  </div>
+                )}
+                <div className="mx-1 text-center">
+                  <a href="college.html">
+                    <img className="header__image__size" src="/img/material-symbols_info-outline-rounded1.png" alt="Информация" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <Offcanvas show={showOffcanvas} onHide={handleClose} placement="end" className="d-lg-none">
+            <Offcanvas.Header closeButton>
+              <Offcanvas.Title>Меню</Offcanvas.Title>
+            </Offcanvas.Header>
+            <Offcanvas.Body>
+              <Nav className="flex-column">
+                {filteredLinks.map((link, idx) => (
+                  <Nav.Link
+                    key={idx}
+                    as={Link}
+                    to={link.path}
+                    onClick={() => {
+                      handleClose();
+                      if (link.label === "Выйти") handleLogout();
+                    }}
+                    className="d-flex align-items-center gap-2 py-2"
+                  >
+                    <img src={link.img} alt={link.label} style={{ width: "24px" }} />
+                    <span>{link.label}</span>
+                  </Nav.Link>
+                ))}
+                {isAuth && (
+                  <Nav.Link
+                    as={Link}
+                    to="/"
+                    onClick={() => {
+                      handleClose();
+                      handleLogout();
+                    }}
+                    className="d-flex align-items-center gap-2 py-2"
+                  >
+                    <img src="/img/logout.png" alt="Выход" style={{ width: "24px" }} />
+                    <span>Выйти</span>
+                  </Nav.Link>
+                )}
+                <Nav.Link href="college.html" className="d-flex align-items-center gap-2 py-2">
+                  <img src="/img/material-symbols_info-outline-rounded1.png" alt="Информация" style={{ width: "24px" }} />
+                  <span>Информация</span>
+                </Nav.Link>
+              </Nav>
+            </Offcanvas.Body>
+          </Offcanvas>
+        </Container>
+      </Navbar>
+    </section>
+  );
+}
+
+==================================================
+app\layouts\layouts\main_layout.tsx:
+==================================================
+// import { Link, Outlet } from "react-router";
+// import Header from "../components/header";
+// import Footer from "../components/footer";
+// import { Breadcrumb } from "react-bootstrap";
+// import React, { createContext, useContext } from "react";
+
+// interface BreadcrumbItem {
+//   title: React.ReactNode;
+//   path?: string;
+// }
+
+// interface BreadcrumbContextType {
+//   crumbs: BreadcrumbItem[];
+//   setCrumbs: (crumbs: BreadcrumbItem[]) => void;
+// }
+
+// const BreadcrumbContext = createContext<BreadcrumbContextType>({
+//   crumbs: [],
+//   setCrumbs: () => {},
+// });
+
+// export const useBreadcrumbs = () => useContext(BreadcrumbContext);
+
+// const BreadCrumbs = () => {
+//   const { crumbs } = useContext(BreadcrumbContext);
+
+//   return (
+//     <Breadcrumb>
+//       <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>Главная</Breadcrumb.Item>
+//       {crumbs.map((item, index) =>
+//         item.path ? (
+//           <Breadcrumb.Item
+//             key={index}
+//             linkAs={Link}
+//             linkProps={{ to: item.path }}
+//           >
+//             {item.title}
+//           </Breadcrumb.Item>
+//         ) : (
+//           <Breadcrumb.Item key={index} active>
+//             {item.title}
+//           </Breadcrumb.Item>
+//         )
+//       )}
+//     </Breadcrumb>
+//   );
+// };
+
+// export default function Layout() {
+
+//   return (
+//       <>
+//         <Header />
+//         <main>
+//           <Outlet />
+//         </main>
+//         <Footer />
+//       </>
+//   );
+// }
+
+==================================================
+app\components\forms\deleteTypeForm.tsx:
+==================================================
+import { useState, type FormEvent } from "react";
+import ypk, { type YpkResponse } from "~/api/ypk";
+import OkModalWindow from "../OkModalWindow";
+
+interface DeleteTypeFormProps {
+  ypks: YpkResponse | null | undefined;
+  onDelete: () => void;
+}
+
+export default function DeleteTypeForm({ ypks, onDelete }: DeleteTypeFormProps) {
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [showModal, setShowModal] = useState(false);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedId) return;
+
+    await ypk.destroy(selectedId);
+    setSelectedId("");
+    setShowModal(true);
+    onDelete();
+  };
+
+  return (
+    <section>
+      <OkModalWindow
+        show={showModal}
+        closeWindow={() => setShowModal(false)}
+        headerText="Успешно"
+        headerCenterText="Тип успешно удалён"
+      />
+      <div className="myBlue rounded-3">
+        <h1 className="p-3 text-white nameBlock">
+          Удалить тип услуг/продуктов
+        </h1>
+      </div>
+      <form className="d-flex gap-2 mb-3" onSubmit={handleSubmit}>
+        <div className="w-75">
+          {ypks?.ypks && ypks.ypks.length > 0 ? (
+            <select
+              className="border-0 rounded-4 backColorGre1 p-3 w-100 text-muted"
+              style={{ height: "100%" }}
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+            >
+              <option value="" disabled>
+                Выберите тип услуги или продукта
+              </option>
+              {ypks.ypks.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.ypkName}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p>Типов нет</p>
+          )}
+        </div>
+        <div className="w-25">
+          <button
+            type="submit"
+            className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100 h-100"
+          >
+            <span>Удалить</span>
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+==================================================
+app\components\forms\newTypeForm.tsx:
+==================================================
+import { useState, type FormEvent } from "react";
+import _type, { type TypeValidation } from "~/api/_type";
+import ShowError from "../showError";
+import OkModalWindow from "../OkModalWindow";
+
+interface NewTypeFormProps {
+  onAdd: () => void;
+}
+
+export default function NewTypeForm({ onAdd }: NewTypeFormProps) {
+  const [text, setText] = useState("");
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState<TypeValidation | null>(null);
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const result = await _type.create(text);
+    if (result.status == 200) {
+      setShow(true);
+      setText("");
+      setError(null);
+      onAdd();
+    } else {
+      setError(result.data as unknown as TypeValidation);
+    }
+  };
+
+  return (
+    <>
+      <OkModalWindow
+        show={show}
+        closeWindow={() => setShow(false)}
+        headerText="Успешно"
+        headerCenterText="Тип успешно добавлен"
+      />
+      <div className="myBlue rounded-3">
+        <h1 className="p-3 text-white nameBlock">
+          Добавить новый тип услуг/продуктов
+        </h1>
+      </div>
+      <form className="d-flex gap-2 mb-3" onSubmit={submit}>
+        <div className="w-75">
+          <input
+            type="text"
+            placeholder="Введите новый тип услуги или продукта"
+            className="border-0 rounded-4 backColorGre1 p-3 w-100"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            style={{ height: "100%" }}
+          />
+          <ShowError error={error} errorKey="ypkName" />
+        </div>
+        <div className="w-25">
+          <button
+            type="submit"
+            className="sign-out d-flex myLightBlue border-0 rounded-3 justify-content-center align-items-center gap-2 p-2 text-white w-100 h-100"
+          >
+            <span>Добавить</span>
+          </button>
+        </div>
+      </form>
+    </>
+  );
+}
