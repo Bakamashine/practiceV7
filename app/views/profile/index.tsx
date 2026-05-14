@@ -43,25 +43,19 @@ const ProfileView = () => {
   };
   const getData = async () => {
     try {
-      getUser();
-      getYpk();
+      await Promise.all([getUser(), getYpk()]);
     } catch (e) {
       console.log(e);
     } finally {
       setLoad(false);
     }
   };
-  const removeType = async (ypkId: string) => {
-    const result =await ypk.destroy(ypkId);
-    if (result.status == 204) {
-      getYpk()
-    }
-  };
+ 
   useEffect(() => {
     getData();
   }, []);
 
-  if (load) {
+  if (load || !currentUser) {
     return <Loader />;
   }
   return (
@@ -79,12 +73,12 @@ const ProfileView = () => {
           <div className="mx-3" style={{ flex: 1 }}>
             <h5>
               <b>Фио: </b>
-              {currentUser!.name}
+              {currentUser.name}
             </h5>
             <hr style={{ width: "100%", margin: 0 }} />
             <p>
               <b>Номер телефона: </b>
-              {currentUser!.phoneNumber}
+              {currentUser.phoneNumber}
             </p>
             <hr style={{ width: "100%", margin: 0 }} />
             <p>
@@ -125,7 +119,7 @@ const ProfileView = () => {
                 </button>
               </Link>
               {/* ======================= Админ кнопки ======================= */}
-              {myUser!.role == "Admin" && (
+              {myUser?.role == "Admin" && (
                 <>
                   <Link
                     to={"/product/edit_page"}
@@ -140,7 +134,7 @@ const ProfileView = () => {
                     </button>
                   </Link>
                   <Link
-                    to="#"
+                    to={"/user"}
                     className="text-decoration-none flex-grow-1 flex-md-grow-0"
                   >
                     <button

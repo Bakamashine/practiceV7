@@ -36,16 +36,7 @@ export default function CommentsView({ loaderData }: Route.ComponentProps) {
     return <Loader />;
   }
 
-  //   const formatDate = (dateString: string) => {
-  //     const date = new Date(dateString);
-  //     return date.toLocaleDateString("ru-RU", {
-  //       day: "numeric",
-  //       month: "long",
-  //       year: "numeric",
-  //     });
-  //   };
-
-  const destroyFeedback = async (idFeedback:  string) => {
+  const destroyFeedback = async (idFeedback: string) => {
     const result = await feedback.destroy(String(idFeedback));
     getData();
   };

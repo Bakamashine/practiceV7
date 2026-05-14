@@ -30,5 +30,9 @@ export default [
   // route("comments", "./views/comments/index.tsx"),
   route("feedback", "./views/feedback/index.tsx"),
   route("feedback/create", "./views/feedback/create.tsx"),
+
+  // User management
+  route("user", "./views/user/index.tsx"),
+
   route("*", "./views/notFound.tsx"),
 ] satisfies RouteConfig;

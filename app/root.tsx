@@ -3,6 +3,7 @@ import {
   Links,
   Meta,
   Outlet,
+  redirect,
   Scripts,
   ScrollRestoration,
   useLoaderData,
@@ -56,6 +57,9 @@ export default function App() {
         console.log("User: ", result.data);
         setUser(result.data);
         setAuth(true);
+      } else {
+        setAuth(false);
+        // throw redirect("/login")
       }
     } catch (e) {
       console.log(e);
@@ -69,13 +73,16 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(async () => {
-      const result = await auth.refreshToken();
-      if (result.status !== 200) {
-        setAuth(false);
-        setUser(null);
-      }
-    }, 4 * 60 * 1000);
+    const interval = setInterval(
+      async () => {
+        const result = await auth.refreshToken();
+        if (result.status !== 200) {
+          setAuth(false);
+          setUser(null);
+        }
+      },
+      4 * 60 * 1000,
+    );
     return () => clearInterval(interval);
   });
   if (load) {

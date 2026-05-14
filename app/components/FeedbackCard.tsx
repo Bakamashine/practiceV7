@@ -9,7 +9,7 @@ import default_image_url from "~/constants/image";
 import UserContext from "~/context/UserContext";
 
 export interface FeedbackCardProps {
-  delete: (idFeedback:  string) => Promise<void>;
+  delete: (idFeedback: string) => Promise<void>;
 }
 
 export default function FeedbackCard({
@@ -48,20 +48,15 @@ export default function FeedbackCard({
             <h5 className="mb-0">{props.user.fullname}</h5>
             <div className="text-warning">{renderStars(props.raiting)}</div>
           </div>
-          {user && user.role == "Admin" && (
-            <>
-              <div className="mb-3">
-                <Button
-                  variant="danger"
-                  onClick={() => callbacks.delete(props.id)}
-                >
-                  Удалить
-                </Button>
-              </div>
-            </>
-          )}
         </div>
         <p className="mb-0 text-secondary">{props.comment}</p>
+        {user && user.role == "Admin" && (
+          <div className="mt-3">
+            <Button variant="danger" onClick={() => callbacks.delete(props.id)}>
+              Удалить
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

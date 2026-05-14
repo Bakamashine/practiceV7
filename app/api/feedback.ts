@@ -9,7 +9,7 @@ export interface FeedbackCreate {
   Rating: string;
 }
 
-export interface FeedbackUser {
+export interface UserDto {
   id: string;
   fullname: string;
   hashPassword: string;
@@ -29,7 +29,7 @@ export interface FeedbackResponse {
   id: string;
   comment: string;
   raiting: string;
-  user: FeedbackUser;
+  user: UserDto;
 }
 
 export interface FeedbackResponseWithPagination extends IPaginate {
