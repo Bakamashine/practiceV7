@@ -1,3 +1,3 @@
-const backend_url = "http://btpit-ypk-api.somee.com/api"
+const backend_url = import.meta.env.VITE_BACKEND_URL
 
 export default backend_url
